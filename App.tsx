@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { User, UserRole, DailyReport, InventoryItem } from './types';
@@ -8,9 +9,22 @@ import { WorkManagement } from './components/WorkManagement';
 import { InventoryManagement } from './components/InventoryManagement';
 import { ReservationManagement } from './components/ReservationManagement';
 import { OwnerAdmin } from './components/OwnerAdmin';
-import { LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, Calendar, Package, ShieldAlert, BookOpen, Home, Bell } from 'lucide-react';
+import { 
+  LogOut, 
+  Menu, 
+  X, 
+  Megaphone, 
+  ClipboardList, 
+  CheckSquare, 
+  Calendar, 
+  Package, 
+  ShieldAlert, 
+  BookOpen, 
+  Home, 
+  Bell,
+  Info
+} from 'lucide-react';
 
-// --- 로그인 페이지 컴포넌트 (변화 없음) ---
 const LoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [id, setId] = useState('');
@@ -24,6 +38,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => 
       return;
     }
     const users = JSON.parse(localStorage.getItem('twosome_users') || '[]');
+    
     if (isSignUp) {
       if (role === 'OWNER') {
         const allowedOwnerIds = ['kms3191', 'ksk545'];
@@ -49,13 +64,13 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => 
       if (user) {
         onLogin(user);
       } else {
-        alert('정보가 일치하지 않습니다.');
+        alert('아이디 또는 비밀번호가 일치하지 않습니다.');
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 pb-safe">
       <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-8 border border-gray-100">
         <div className="text-center space-y-2">
           <div className="inline-block p-4 bg-red-600 rounded-2xl text-white shadow-lg mb-2">
@@ -65,11 +80,23 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => 
           <p className="text-gray-400 font-medium text-xs">매장 효율을 위한 전용 관리 시스템</p>
         </div>
         <div className="space-y-4">
-          <input type="text" placeholder="아이디" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-red-100 font-bold" value={id} onChange={e => setId(e.target.value.toLowerCase())} />
-          <input type="password" placeholder="비밀번호 (숫자 4자리)" maxLength={4} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-red-100 font-bold" value={pw} onChange={e => setPw(e.target.value.replace(/\D/g, ''))} />
+          <input 
+            type="text" placeholder="아이디"
+            className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-red-100 font-bold"
+            value={id} onChange={e => setId(e.target.value.toLowerCase())}
+          />
+          <input 
+            type="password" placeholder="비밀번호 (숫자 4자리)" maxLength={4}
+            className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-red-100 font-bold"
+            value={pw} onChange={e => setPw(e.target.value.replace(/\D/g, ''))}
+          />
           {isSignUp && (
             <div className="space-y-4">
-              <input type="text" placeholder="닉네임 (실명 필수)" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-red-100 font-bold" value={nickname} onChange={e => setNickname(e.target.value)} />
+              <input 
+                type="text" placeholder="닉네임 (실명 필수)"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-red-100 font-bold"
+                value={nickname} onChange={e => setNickname(e.target.value)}
+              />
               <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
                 <button onClick={() => setRole('STAFF')} className={`flex-1 py-3 rounded-xl font-black transition-all ${role === 'STAFF' ? 'bg-white text-black shadow-sm' : 'text-gray-400'}`}>직원</button>
                 <button onClick={() => setRole('OWNER')} className={`flex-1 py-3 rounded-xl font-black transition-all ${role === 'OWNER' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400'}`}>점주</button>
@@ -83,12 +110,14 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => 
             {isSignUp ? '이미 계정이 있나요? 로그인' : '처음이신가요? 회원가입'}
           </button>
         </div>
+        <div className="pt-4 border-t border-dashed flex items-center gap-2 text-[10px] text-gray-400 font-medium">
+          <Info size={12} /> 현재 기기에만 데이터가 저장되는 데모 버전입니다.
+        </div>
       </div>
     </div>
   );
 };
 
-// --- 네비게이션 컴포넌트 ---
 const Navigation: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -108,23 +137,29 @@ const Navigation: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLo
     return () => clearInterval(timer);
   }, [user]);
 
-  const links = [
+  const mainLinks = [
     { path: '/notice', label: '공지', icon: <Megaphone size={20} /> },
     { path: '/checklist', label: '업무', icon: <CheckSquare size={20} /> },
     { path: '/reservation', label: '예약', icon: <BookOpen size={20} /> },
     { path: '/inventory', label: '재고', icon: <Package size={20} /> },
+  ];
+
+  const sidebarLinks = [
+    ...mainLinks,
     { path: '/handover', label: '인계인수', icon: <ClipboardList size={20} /> },
     { path: '/work', label: '근무스케줄', icon: <Calendar size={20} /> },
   ];
 
   return (
     <>
-      {/* 데스크탑 왼쪽 사이드바: "채팅" 기능 없이 깔끔한 메뉴만 유지 */}
-      <nav className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-white border-r flex-col p-8 z-50">
+      {/* Desktop Sidebar */}
+      <nav className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-white border-r flex-col p-8 z-50">
         <h1 className="text-2xl font-black text-red-600 mb-10 tracking-tighter">TWOSOME</h1>
         <div className="flex-1 space-y-2">
-          {links.map(link => (
-            <Link key={link.path} to={link.path} className={`flex items-center gap-4 px-5 py-3 rounded-2xl font-bold transition-all ${location.pathname === link.path ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}>
+          {sidebarLinks.map(link => (
+            <Link key={link.path} to={link.path} 
+              className={`flex items-center gap-4 px-5 py-3 rounded-2xl font-bold transition-all ${location.pathname === link.path ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
               {link.icon} {link.label}
             </Link>
           ))}
@@ -135,41 +170,73 @@ const Navigation: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLo
             </Link>
           )}
         </div>
-        <button onClick={onLogout} className="mt-auto flex items-center gap-3 text-gray-400 font-bold hover:text-red-600 transition-colors pt-6 border-t">
-          <LogOut size={20} /> 로그아웃
-        </button>
+        <div className="pt-6 border-t mt-auto">
+          <button onClick={onLogout} className="w-full flex items-center gap-3 text-gray-400 font-bold hover:text-red-600 transition-colors">
+            <LogOut size={20} /> 로그아웃
+          </button>
+        </div>
       </nav>
 
-      {/* 모바일 상단 바 */}
-      <header className="lg:hidden fixed top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md border-b flex items-center justify-between px-6 z-40">
+      {/* Mobile Top Bar */}
+      <header className="md:hidden fixed top-0 inset-x-0 h-16 bg-white/80 backdrop-blur-md border-b flex items-center justify-between px-6 z-40">
         <h1 className="text-xl font-black text-red-600 tracking-tighter">TWOSOME</h1>
-        <button onClick={() => setIsOpen(true)} className="p-2 text-gray-800"><Menu size={24} /></button>
+        <div className="flex items-center gap-4">
+          {user.role === 'OWNER' && (
+            <Link to="/admin" className="relative p-2 text-gray-800">
+              <Bell size={24} />
+              {pendingCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white animate-alert" />}
+            </Link>
+          )}
+          <button onClick={() => setIsOpen(true)} className="p-2 text-gray-800"><Menu size={24} /></button>
+        </div>
       </header>
 
-      {/* 모바일 하단 탭바: 자주 쓰는 메뉴 4개만 노출 */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around items-center h-16 pb-safe z-40">
-        {links.slice(0, 4).map(link => (
-          <Link key={link.path} to={link.path} className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === link.path ? 'text-red-600' : 'text-gray-400'}`}>
-            {link.icon}
+      {/* Mobile Bottom Tab Bar */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around items-center h-16 pb-safe z-40 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+        {mainLinks.map(link => (
+          <Link key={link.path} to={link.path} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${location.pathname === link.path ? 'text-red-600' : 'text-gray-400'}`}>
+            {/* Fix: Added type casting to React.ReactElement<any> to allow 'size' property during cloneElement */}
+            {React.cloneElement(link.icon as React.ReactElement<any>, { size: 22 })}
             <span className="text-[10px] font-black mt-1">{link.label}</span>
           </Link>
         ))}
+        <button onClick={() => setIsOpen(true)} className="flex flex-col items-center justify-center w-full h-full text-gray-400">
+          <Menu size={22} />
+          <span className="text-[10px] font-black mt-1">더보기</span>
+        </button>
       </div>
 
-      {/* 모바일 메뉴 드로어 */}
+      {/* Mobile Menu Drawer */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={() => setIsOpen(false)}>
-          <div className="absolute right-0 inset-y-0 w-3/4 bg-white p-8 flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] animate-in fade-in duration-300">
+          <div className="absolute right-0 inset-y-0 w-3/4 bg-white shadow-2xl p-8 flex flex-col animate-in slide-in-from-right duration-300">
             <div className="flex justify-between items-center mb-10">
-              <span className="font-black">메뉴</span>
-              <button onClick={() => setIsOpen(false)}><X size={24} /></button>
+              <div className="font-black text-gray-900">전체 메뉴</div>
+              <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-100 rounded-full"><X size={20} /></button>
             </div>
-            <div className="space-y-4">
-              {links.map(link => (
-                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)} className={`flex items-center gap-4 p-4 rounded-2xl font-black ${location.pathname === link.path ? 'bg-red-600 text-white' : 'bg-gray-50'}`}>
+            <div className="space-y-4 flex-1 overflow-y-auto scrollbar-hide">
+              {sidebarLinks.map(link => (
+                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)}
+                  className={`flex items-center gap-4 p-4 rounded-2xl font-black ${location.pathname === link.path ? 'bg-red-600 text-white' : 'bg-gray-50 text-gray-600'}`}
+                >
                   {link.icon} {link.label}
                 </Link>
               ))}
+              {user.role === 'OWNER' && (
+                <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-black text-white">
+                  <ShieldAlert size={20} /> 승인 센터
+                </Link>
+              )}
+            </div>
+            <div className="mt-auto pt-6 border-t space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-black text-gray-500 border border-gray-200">{user.nickname.slice(0,1)}</div>
+                <div className="flex-1">
+                  <div className="text-sm font-black text-gray-800">{user.nickname}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase">{user.role === 'OWNER' ? '점주' : '직원'}</div>
+                </div>
+              </div>
+              <button onClick={onLogout} className="w-full py-4 text-red-600 font-black text-sm bg-red-50 rounded-2xl">로그아웃</button>
             </div>
           </div>
         </div>
@@ -178,7 +245,6 @@ const Navigation: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLo
   );
 };
 
-// --- 메인 App 컴포넌트 ---
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -204,11 +270,10 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <div className="min-h-screen flex bg-slate-50">
+      <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
         <Navigation user={currentUser} onLogout={handleLogout} />
-        {/* 메인 영역: 사이드바 너비를 제외한 나머지 공간을 꽉 채움 */}
-        <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 pb-20 lg:pb-0">
-          <div className="max-w-5xl mx-auto px-4 py-6 lg:py-12">
+        <main className="flex-1 md:ml-64 pt-16 md:pt-0 pb-20 md:pb-0 px-4 md:px-10 overflow-x-hidden">
+          <div className="max-w-4xl mx-auto py-6 md:py-12">
             <Routes>
               <Route path="/notice" element={<NoticeBoard currentUser={currentUser} />} />
               <Route path="/handover" element={<HandoverBoard currentUser={currentUser} />} />
