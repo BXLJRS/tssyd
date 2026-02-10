@@ -10,9 +10,10 @@ import { InventoryManagement } from './components/InventoryManagement';
 import { ReservationManagement } from './components/ReservationManagement';
 import { RecipeManual } from './components/RecipeManual';
 import { OwnerAdmin } from './components/OwnerAdmin';
+import { SettingsPage } from './components/SettingsPage';
 import { 
   LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, 
-  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users, Calendar
+  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users, Calendar, ShieldCheck
 } from 'lucide-react';
 
 const INITIAL_APP_DATA: AppData = {
@@ -60,10 +61,11 @@ const Navigation: React.FC<{
     { path: '/inventory', label: '재고', icon: Package },
     { path: '/reservation', label: '예약', icon: Book },
     { path: '/recipe', label: '레시피', icon: BookOpen },
+    { path: '/settings', label: '설정', icon: Settings },
   ];
 
   if (user.role === 'OWNER') {
-    navItems.push({ path: '/admin', label: '관리자', icon: Settings });
+    navItems.splice(7, 0, { path: '/admin', label: '관리자', icon: ShieldCheck });
   }
 
   return (
@@ -151,6 +153,10 @@ const Navigation: React.FC<{
              <span className="text-[10px] font-black">{item.label}</span>
            </Link>
          ))}
+         <Link to="/settings" className={`flex flex-col items-center gap-1 p-2 transition-all ${location.pathname === '/settings' ? 'text-red-600' : 'text-gray-300'}`}>
+             <Settings size={20} />
+             <span className="text-[10px] font-black">설정</span>
+         </Link>
       </div>
     </>
   );
@@ -161,6 +167,7 @@ const App: React.FC = () => {
   const [storeId, setStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('offline');
   const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
+  const [tempInputId, setTempInputId] = useState('');
   const isSyncing = useRef(false);
 
   const loadLocalData = useCallback(() => {
@@ -258,6 +265,25 @@ const App: React.FC = () => {
     localStorage.removeItem('twosome_session');
   };
 
+  const handleConnectStore = () => {
+    const cleanedId = tempInputId.trim().toLowerCase().replace(/\s/g, '');
+    if (cleanedId.length > 3) {
+      localStorage.setItem('twosome_store_id', cleanedId);
+      setStoreId(cleanedId);
+      window.location.reload();
+    } else {
+      alert('매장 코드를 4자 이상 입력해주세요.');
+    }
+  };
+
+  // 사용자 삭제 기능 추가 (점주용)
+  const handleDeleteUser = (userId: string) => {
+    const updatedUsers = appData.users.filter(u => u.id !== userId);
+    localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
+    setAppData({ ...appData, users: updatedUsers });
+    syncWithCloud(true);
+  };
+
   if (!storeId) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
@@ -268,12 +294,14 @@ const App: React.FC = () => {
             <p className="text-gray-500 font-bold text-sm">동기화를 위해 매장 코드를 입력하세요.</p>
           </div>
           <input 
-            type="text" placeholder="예: twosome-manager-01" 
+            type="text" 
+            placeholder="예: 1903384" 
             className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-red-500 font-black text-center text-lg uppercase"
-            onChange={e => setStoreId(e.target.value.toLowerCase().replace(/\s/g, ''))}
+            value={tempInputId}
+            onChange={e => setTempInputId(e.target.value)}
           />
           <button 
-            onClick={() => { if(storeId.length > 3) { localStorage.setItem('twosome_store_id', storeId); window.location.reload(); } }}
+            onClick={handleConnectStore}
             className="w-full py-5 bg-black text-white rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform"
           >연결하기</button>
         </div>
@@ -292,10 +320,11 @@ const App: React.FC = () => {
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} externalData={appData.notices} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} externalData={appData.handovers} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} externalData={appData.tasks} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} externalFixedSchedules={appData.fixedSchedules} onUpdate={() => syncWithCloud(true)} />} />
+            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} externalFixedSchedules={appData.fixedSchedules} onUpdate={() => syncWithCloud(true)} onDeleteUser={handleDeleteUser} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={() => syncWithCloud(true)} />} />
+            <Route path="/settings" element={<SettingsPage currentUser={currentUser} currentStoreId={storeId} onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); window.location.reload(); }} />} />
             {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin externalReports={appData.reports} externalInventory={appData.inventory} onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); syncWithCloud(true); }} />} />}
             <Route path="*" element={<Navigate to="/notice" />} />
           </Routes>

@@ -5,7 +5,7 @@ import { calculateWorkHours, getTodayDateString, getDayOfWeek } from '../utils';
 import { 
   Calendar as CalendarIcon, Users, Clock, Plus, X, 
   ChevronLeft, ChevronRight, CheckCircle, Info, Star, Trash2, 
-  AlertTriangle, BookOpen, UserCheck
+  AlertTriangle, BookOpen, UserCheck, UserMinus
 } from 'lucide-react';
 
 interface WorkAttendanceUnifiedProps {
@@ -15,10 +15,11 @@ interface WorkAttendanceUnifiedProps {
   externalReports?: DailyReport[];
   externalFixedSchedules?: FixedSchedule[];
   onUpdate?: () => void;
+  onDeleteUser?: (userId: string) => void; // 사용자 삭제 콜백 추가
 }
 
 export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({ 
-  currentUser, allUsers, externalSchedules = [], externalReports = [], externalFixedSchedules = [], onUpdate 
+  currentUser, allUsers, externalSchedules = [], externalReports = [], externalFixedSchedules = [], onUpdate, onDeleteUser 
 }) => {
   const [activeTab, setActiveTab] = useState<'CALENDAR' | 'STAFF'>('CALENDAR');
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
@@ -56,7 +57,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
     const plans = externalSchedules.filter(s => s.date === dateStr);
     const actuals = externalReports.filter(r => r.date === dateStr && r.isApproved);
     
-    // 날짜 상태 판단
     const isPast = dateStr < todayStr;
     const isToday = dateStr === todayStr;
 
@@ -149,11 +149,20 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
     }
   };
 
+  const handleDeleteStaff = (user: User) => {
+    if (user.role === 'OWNER') {
+      alert('점주 계정은 삭제할 수 없습니다.');
+      return;
+    }
+    if (confirm(`${user.nickname}님의 계정을 삭제(퇴사 처리)하시겠습니까?\n삭제 후에도 해당 직원이 작성한 근무 기록 및 데이터는 유지됩니다.`)) {
+      onDeleteUser?.(user.id);
+    }
+  };
+
   const dayData = getDayData(parseInt(selectedDate.split('-')[2]));
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
-      {/* 상단 통합 탭 */}
       <div className="flex bg-white p-1.5 rounded-[2rem] shadow-sm border border-gray-100">
         <button 
           onClick={() => setActiveTab('CALENDAR')}
@@ -172,7 +181,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
       {activeTab === 'CALENDAR' ? (
         <div className="space-y-6">
           <div className="grid lg:grid-cols-12 gap-6">
-            {/* 달력 섹션 */}
             <div className="lg:col-span-7 bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm">
               <div className="flex justify-between items-center mb-6 px-2">
                 <h3 className="text-xl font-black text-gray-900">{year}년 {month + 1}월</h3>
@@ -218,7 +226,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
               </div>
             </div>
 
-            {/* 상세 정보 섹션 */}
             <div className="lg:col-span-5 space-y-4">
               <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
                 <div className="flex justify-between items-center">
@@ -231,7 +238,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
                   )}
                 </div>
 
-                {/* 확정된 근무 기록 (보고 승인됨) */}
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-red-500 uppercase flex items-center gap-2">
                     <UserCheck size={12}/> 확정 기록 (보고 완료)
@@ -259,7 +265,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
 
                 <div className="h-px bg-gray-100" />
 
-                {/* 배정 계획 (Plans) */}
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-2">
                     <Clock size={12}/> {dayData.isPast ? '과거 배정 내역' : '근무 배정 계획'}
@@ -282,7 +287,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
             </div>
           </div>
 
-          {/* 고정 주간 근무표 레퍼런스 */}
           <section className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
              <div className="flex justify-between items-center mb-8">
                <div>
@@ -321,7 +325,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
           </section>
         </div>
       ) : (
-        /* 직원 명단 섹션 */
         <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-8 bg-gray-50 border-b flex justify-between items-center">
             <div>
@@ -332,7 +335,7 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
           </div>
           <div className="divide-y divide-gray-50">
             {allUsers.map(u => (
-              <div key={u.id} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <div key={u.id} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors group">
                 <div className="flex items-center gap-5">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg ${u.role === 'OWNER' ? 'bg-red-600 text-white' : 'bg-white border-2 border-gray-100 text-gray-300'}`}>
                     {u.nickname[0]}
@@ -347,9 +350,21 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
                     <div className="text-xs font-bold text-gray-400">ID: {u.id}</div>
                   </div>
                 </div>
-                <div className="text-right">
-                   <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Work Information</div>
-                   <div className="text-xs font-bold text-gray-600">근무시작: {u.startDate || '미지정'}</div>
+                <div className="flex items-center gap-6">
+                  <div className="text-right hidden sm:block">
+                     <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Work Information</div>
+                     <div className="text-xs font-bold text-gray-600">근무시작: {u.startDate || '미지정'}</div>
+                  </div>
+                  {/* 점주 전용 삭제 버튼 */}
+                  {currentUser.role === 'OWNER' && u.id !== currentUser.id && u.role !== 'OWNER' && (
+                    <button 
+                      onClick={() => handleDeleteStaff(u)}
+                      className="p-3 bg-gray-50 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                      title="계정 삭제 (퇴사)"
+                    >
+                      <UserMinus size={20} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -357,7 +372,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
         </div>
       )}
 
-      {/* 모달: 배정 추가 */}
       {isAddingPlan && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 z-[70]">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in">
@@ -381,7 +395,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
         </div>
       )}
 
-      {/* 모달: 기록 보정 (점주 전용) */}
       {isAddingActual && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 z-[70]">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in">
@@ -404,7 +417,6 @@ export const WorkAttendanceUnified: React.FC<WorkAttendanceUnifiedProps> = ({
         </div>
       )}
 
-      {/* 모달: 고정 근무표 추가 */}
       {isAddingFixed && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 z-[70]">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl animate-in zoom-in">
