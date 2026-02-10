@@ -48,8 +48,9 @@ const Navigation: React.FC<{
   user: User, 
   storeId: string, 
   syncStatus: 'connected' | 'offline' | 'syncing', 
-  onLogout: () => void 
-}> = ({ user, storeId, syncStatus, onLogout }) => {
+  onLogout: () => void,
+  onManualSync: () => void
+}> = ({ user, storeId, syncStatus, onLogout, onManualSync }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
@@ -99,7 +100,10 @@ const Navigation: React.FC<{
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100">
+          <button 
+            onClick={onManualSync}
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100 hover:bg-gray-100 transition-colors"
+          >
             {syncStatus === 'syncing' ? (
               <RefreshCw size={12} className="text-blue-500 animate-spin" />
             ) : syncStatus === 'connected' ? (
@@ -108,7 +112,7 @@ const Navigation: React.FC<{
               <CloudOff size={12} className="text-gray-400" />
             )}
             <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{storeId}</span>
-          </div>
+          </button>
           <div className="hidden sm:flex items-center gap-2">
              <span className="text-[10px] font-black bg-black text-white px-2 py-0.5 rounded uppercase">{user.role}</span>
              <span className="text-sm font-bold text-gray-700">{user.nickname}</span>
@@ -153,6 +157,10 @@ const Navigation: React.FC<{
              <span className="text-[10px] font-black">{item.label}</span>
            </Link>
          ))}
+         <button onClick={onManualSync} className={`flex flex-col items-center gap-1 p-2 ${syncStatus === 'syncing' ? 'text-blue-500' : 'text-gray-300'}`}>
+            <RefreshCw size={20} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
+            <span className="text-[10px] font-black">동기화</span>
+         </button>
          <Link to="/settings" className={`flex flex-col items-center gap-1 p-2 transition-all ${location.pathname === '/settings' ? 'text-red-600' : 'text-gray-300'}`}>
              <Settings size={20} />
              <span className="text-[10px] font-black">설정</span>
@@ -187,7 +195,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const savedSession = localStorage.getItem('twosome_session');
-    if (savedSession) setCurrentUser(JSON.parse(savedSession));
+    if (savedSession) {
+      try {
+        setCurrentUser(JSON.parse(savedSession));
+      } catch (e) {
+        localStorage.removeItem('twosome_session');
+      }
+    }
     loadLocalData();
   }, [loadLocalData]);
 
@@ -240,12 +254,12 @@ const App: React.FC = () => {
         const localItems = localData[key] || [];
         let merged = mergeData(localItems, cloudItems);
 
-        // 핵심: 유저 목록 동기화 시 현재 로그인한 사용자가 목록에 없으면 강제 추가
+        // 핵심: 현재 사용자가 목록에 없으면 강제 추가하여 서버에 내 정보를 알림
         if (key === 'users' && currentUser) {
           const amIInList = merged.some((u: User) => u.id === currentUser.id);
           if (!amIInList) {
             merged = [...merged, currentUser];
-            hasChanges = true; // 유저 정보가 추가되었으므로 클라우드에 다시 올려야 함
+            hasChanges = true;
           }
         }
 
@@ -256,8 +270,10 @@ const App: React.FC = () => {
         localStorage.setItem(DATA_KEYS[key], JSON.stringify(merged));
       });
 
+      // 변경 사항 유무와 관계없이 무조건 State 업데이트 (직원 가상 목록 로딩 방지)
+      setAppData(mergedData);
+
       if (hasChanges || forcePush) {
-        setAppData(mergedData);
         await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
           method: 'POST',
           body: JSON.stringify(mergedData),
@@ -284,7 +300,8 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('twosome_session', JSON.stringify(user));
-    loadLocalData();
+    // 로그인 즉시 동기화 실행
+    syncWithCloud(true);
   };
 
   const handleLogout = () => {
@@ -299,38 +316,24 @@ const App: React.FC = () => {
       setStoreId(cleanedId);
       window.location.reload();
     } else {
-      alert('매장 코드를 4자 이상 입력해주세요.');
+      alert('매장 코드를 정확히 4자 이상 입력해주세요.');
     }
   };
 
-  // 사용자 삭제 기능 (점주용)
-  const handleDeleteUser = (userId: string) => {
-    const updatedUsers = appData.users.filter(u => u.id !== userId);
-    localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
-    setAppData({ ...appData, users: updatedUsers });
-    syncWithCloud(true);
-  };
-
   const handleStoreIdUpdate = (newId: string) => {
-    // 매장 코드 변경 시 로컬 데이터 클린업 로직
-    // 세션과 스토어ID만 남기고 비즈니스 데이터는 모두 삭제
+    // 매장 코드 변경 시 로컬 데이터 완전 초기화 (매우 중요)
     Object.values(DATA_KEYS).forEach(key => {
-      // 'twosome_users'는 보존하거나, 최소한 현재 유저 정보만 남기기
-      if (key !== 'twosome_users') {
-        localStorage.removeItem(key);
-      }
+      localStorage.removeItem(key);
     });
     
-    // 현재 유저 정보는 유저 목록에 다시 등록되어야 하므로 보존
-    const currentUsers = JSON.parse(localStorage.getItem('twosome_users') || '[]');
+    // 현재 세션은 유지하되, 유저 목록에 현재 유저만 남김
     if (currentUser) {
       localStorage.setItem('twosome_users', JSON.stringify([currentUser]));
-    } else {
-      localStorage.removeItem('twosome_users');
     }
 
     localStorage.setItem('twosome_store_id', newId);
     setStoreId(newId);
+    // 즉시 새로고침하여 깨끗한 상태에서 새 데이터를 받도록 함
     window.location.reload();
   };
 
@@ -341,11 +344,11 @@ const App: React.FC = () => {
           <div className="text-center space-y-4">
             <div className="inline-block p-4 bg-red-600 rounded-3xl text-white shadow-xl"><Store size={40} /></div>
             <h1 className="text-3xl font-black text-gray-900 tracking-tighter">매장 연결</h1>
-            <p className="text-gray-500 font-bold text-sm">동기화를 위해 매장 코드를 입력하세요.</p>
+            <p className="text-gray-500 font-bold text-sm leading-relaxed">매장 점주님께 전달받은 고유 코드를 입력하세요.<br/>(예: 1903384)</p>
           </div>
           <input 
             type="text" 
-            placeholder="예: 1903384" 
+            placeholder="매장 코드를 입력하세요" 
             className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-red-500 font-black text-center text-lg uppercase"
             value={tempInputId}
             onChange={e => setTempInputId(e.target.value)}
@@ -353,7 +356,7 @@ const App: React.FC = () => {
           <button 
             onClick={handleConnectStore}
             className="w-full py-5 bg-black text-white rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform"
-          >연결하기</button>
+          >매장 연결하기</button>
         </div>
       </div>
     );
@@ -364,13 +367,28 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-50">
-        <Navigation user={currentUser} storeId={storeId} syncStatus={syncStatus} onLogout={handleLogout} />
+        <Navigation 
+          user={currentUser} 
+          storeId={storeId} 
+          syncStatus={syncStatus} 
+          onLogout={handleLogout} 
+          onManualSync={() => syncWithCloud(true)} 
+        />
         <main className="flex-1 pt-16 pb-20 px-4 max-w-6xl mx-auto w-full">
+          {syncStatus === 'offline' && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-xs font-bold flex items-center gap-2">
+              <CloudOff size={16}/> 오프라인 상태입니다. 네트워크 연결을 확인해 주세요.
+            </div>
+          )}
           <Routes>
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} externalData={appData.notices} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} externalData={appData.handovers} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} externalData={appData.tasks} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} externalFixedSchedules={appData.fixedSchedules} onUpdate={() => syncWithCloud(true)} onDeleteUser={handleDeleteUser} />} />
+            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} externalFixedSchedules={appData.fixedSchedules} onUpdate={() => syncWithCloud(true)} onDeleteUser={(id) => {
+              const updatedUsers = appData.users.filter(u => u.id !== id);
+              localStorage.setItem('twosome_users', JSON.stringify(updatedUsers));
+              syncWithCloud(true);
+            }} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={() => syncWithCloud(true)} />} />
@@ -397,7 +415,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       alert('아이디 4자 이상, 비밀번호 숫자 4자리여야 합니다.');
       return;
     }
-    const users = JSON.parse(localStorage.getItem(DATA_KEYS.users) || '[]');
+    const users = JSON.parse(localStorage.getItem('twosome_users') || '[]');
     if (isSignUp) {
       if (role === 'OWNER') {
         const allowedOwnerIds = ['kms3191', 'ksk545'];
@@ -412,14 +430,15 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       }
       const newUser: User = { id, passwordHash: pw, nickname, role, updatedAt: Date.now(), startDate };
       const updatedUsers = [...users, newUser];
-      localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
+      localStorage.setItem('twosome_users', JSON.stringify(updatedUsers));
+      // 가입 즉시 서버와 연동 시도
       onUpdate();
       alert('가입 성공! 로그인해주세요.');
       setIsSignUp(false);
     } else {
       const user = users.find((u: User) => u.id === id && u.passwordHash === pw);
       if (user) onLogin(user);
-      else alert('로그인 정보를 확인해주세요.');
+      else alert('로그인 정보가 틀렸거나 아직 데이터 동기화 전일 수 있습니다. 아이디/비번을 확인해 주세요.');
     }
   };
 
@@ -431,23 +450,23 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
           <h1 className="text-2xl font-black text-gray-900 tracking-tighter uppercase">Twosome Connect</h1>
         </div>
         <div className="space-y-4">
-          <input type="text" placeholder="아이디" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={id} onChange={e => setId(e.target.value.toLowerCase())} />
-          <input type="password" placeholder="비밀번호 (4자리)" maxLength={4} className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={pw} onChange={e => setPw(e.target.value.replace(/\D/g, ''))} />
+          <input type="text" placeholder="아이디 (4자 이상)" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={id} onChange={e => setId(e.target.value.toLowerCase())} />
+          <input type="password" placeholder="비밀번호 (숫자 4자리)" maxLength={4} className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={pw} onChange={e => setPw(e.target.value.replace(/\D/g, ''))} />
           {isSignUp && (
-            <div className="space-y-4">
-              <input type="text" placeholder="이름" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={nickname} onChange={e => setNickname(e.target.value)} />
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+              <input type="text" placeholder="본인 성함" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={nickname} onChange={e => setNickname(e.target.value)} />
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 ml-1 uppercase">실제 근무 시작일</label>
+                <label className="text-[10px] font-black text-gray-400 ml-1 uppercase">근무 시작일</label>
                 <input type="date" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={startDate} onChange={e => setStartDate(e.target.value)} />
               </div>
               <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
-                <button onClick={() => setRole('STAFF')} className={`flex-1 py-3 rounded-xl font-black ${role === 'STAFF' ? 'bg-white text-black shadow-sm' : 'text-gray-400'}`}>직원</button>
-                <button onClick={() => setRole('OWNER')} className={`flex-1 py-3 rounded-xl font-black ${role === 'OWNER' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400'}`}>점주</button>
+                <button onClick={() => setRole('STAFF')} className={`flex-1 py-3 rounded-xl font-black transition-all ${role === 'STAFF' ? 'bg-white text-black shadow-sm' : 'text-gray-400'}`}>직원</button>
+                <button onClick={() => setRole('OWNER')} className={`flex-1 py-3 rounded-xl font-black transition-all ${role === 'OWNER' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400'}`}>점주</button>
               </div>
             </div>
           )}
           <button onClick={handleAuth} className="w-full py-5 bg-black text-white rounded-2xl font-black text-lg active:scale-95 transition-transform shadow-xl">{isSignUp ? '가입하기' : '로그인'}</button>
-          <button onClick={() => setIsSignUp(!isSignUp)} className="w-full text-sm font-bold text-gray-400 py-2">{isSignUp ? '로그인하러 가기' : '계정 생성하기'}</button>
+          <button onClick={() => setIsSignUp(!isSignUp)} className="w-full text-sm font-bold text-gray-400 py-2">{isSignUp ? '이미 계정이 있나요? 로그인' : '처음인가요? 계정 만들기'}</button>
         </div>
       </div>
     </div>
