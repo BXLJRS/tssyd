@@ -272,7 +272,7 @@ const App: React.FC = () => {
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
-            <Route path="/attendance" element={<AttendanceCalendar currentUser={currentUser} />} />
+            <Route path="/attendance" element={<AttendanceCalendar currentUser={currentUser} allUsers={JSON.parse(localStorage.getItem('twosome_users') || '[]')} onUpdate={syncWithCloud} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={JSON.parse(localStorage.getItem('twosome_users') || '[]')} onUpdate={syncWithCloud} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
