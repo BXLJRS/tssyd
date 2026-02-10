@@ -13,7 +13,7 @@ import { OwnerAdmin } from './components/OwnerAdmin';
 import { SettingsPage } from './components/SettingsPage';
 import { 
   LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, 
-  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users, Calendar, ShieldCheck
+  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users, Calendar, ShieldCheck, Loader2
 } from 'lucide-react';
 
 const INITIAL_APP_DATA: AppData = {
@@ -175,11 +175,13 @@ const App: React.FC = () => {
   const [storeId, setStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('offline');
   const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [tempInputId, setTempInputId] = useState('');
+  
   const isSyncing = useRef(false);
-  const hasFirstSyncFinished = useRef(false);
+  const hasLoadedFromServer = useRef(false);
 
-  // 로컬 데이터 로드
+  // 로컬 데이터 로드 (컴포넌트 시작 시 1회)
   const loadLocalData = useCallback(() => {
     const localData: any = { ...INITIAL_APP_DATA };
     (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
@@ -199,18 +201,19 @@ const App: React.FC = () => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 병합 로직 (타임스탬프 기준)
+  // 병합 로직 (클라우드 우선 및 삭제 방어)
   const mergeItems = (local: any[], cloud: any[]) => {
     if (!Array.isArray(cloud)) cloud = [];
     if (!Array.isArray(local)) local = [];
     
-    // 로컬이 비어있으면 서버 데이터를 100% 신뢰 (신규 기기)
+    // 로컬이 비어있으면 서버 데이터를 100% 신뢰 (신규 기기 보호)
     if (local.length === 0 && cloud.length > 0) return cloud;
 
     const map = new Map();
-    // 서버 데이터를 먼저 넣음
+    // 서버 데이터를 먼저 기준점으로 삼음
     cloud.forEach(item => { if (item?.id) map.set(item.id, item); });
-    // 로컬 데이터를 순회하며 더 최신이거나 서버에 없는 것만 업데이트
+    
+    // 로컬 데이터를 순회하며 서버 것보다 최신인 것만 업데이트
     local.forEach(item => {
       if (!item?.id) return;
       const existing = map.get(item.id);
@@ -221,28 +224,24 @@ const App: React.FC = () => {
     return Array.from(map.values());
   };
 
-  // 클라우드 동기화 핵심 함수
+  // 클라우드 동기화 (방어적 설계 핵심)
   const syncWithCloud = useCallback(async (forcePush = false) => {
     if (!storeId || isSyncing.current) return;
     
-    // 잘못된 스토어 ID(예: "1") 감지 시 리셋
-    if (storeId.length < 4) {
-      localStorage.removeItem('twosome_store_id');
-      setStoreId('');
-      return;
-    }
-
     isSyncing.current = true;
     setSyncStatus('syncing');
 
     try {
       // 1. 서버 데이터 GET
-      const res = await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`);
+      const res = await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}?t=${Date.now()}`);
       let cloudData: Partial<AppData> = {};
       
       if (res.ok) {
         const text = await res.text();
-        if (text) cloudData = JSON.parse(text);
+        if (text) {
+          cloudData = JSON.parse(text);
+          hasLoadedFromServer.current = true; // 서버 로딩 성공 표시
+        }
       }
 
       // 2. 현재 로컬 데이터 읽기
@@ -263,7 +262,7 @@ const App: React.FC = () => {
         const localItems = localData[key] || [];
         const merged = mergeItems(localItems, cloudItems);
 
-        // 로컬에 내 계정 추가 (서버에 나를 등록)
+        // 내 정보가 목록에 없으면 추가 (내 아이디 보존)
         let finalMerged = merged;
         if (key === 'users' && currentUser) {
           if (!merged.find((u: any) => u.id === currentUser.id)) {
@@ -285,38 +284,44 @@ const App: React.FC = () => {
 
       // 4. 상태 업데이트
       setAppData(mergedData);
-      hasFirstSyncFinished.current = true;
+      setIsInitialized(true);
 
-      // 5. 서버에 POST (변경사항이 있거나 강제 푸시일 때만)
-      if (hasChangesToServer || forcePush) {
-        await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
+      // 5. 서버에 POST (변경사항이 있고, 서버 로딩이 최소 1회 끝난 상태여야 함!)
+      // 서버에서 데이터를 못 가져온 상태에서 POST를 하면 내 빈 로컬이 서버를 덮어씀 -> 이걸 방지함
+      if ((hasChangesToServer || forcePush) && hasLoadedFromServer.current) {
+        const postRes = await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(mergedData),
         });
+        if (!postRes.ok) throw new Error('Upload failed');
       }
       
       setSyncStatus('connected');
     } catch (e) {
       console.error("Sync Error:", e);
       setSyncStatus('offline');
+      if (!isInitialized) setIsInitialized(true);
     } finally {
       isSyncing.current = false;
     }
-  }, [storeId, currentUser]);
+  }, [storeId, currentUser, isInitialized]);
 
   // 주기적 동기화
   useEffect(() => {
     if (storeId) {
       syncWithCloud();
-      const interval = setInterval(() => syncWithCloud(), 10000); // 10초 주기
+      const interval = setInterval(() => syncWithCloud(), 10000); 
       return () => clearInterval(interval);
+    } else {
+      setIsInitialized(true); 
     }
   }, [storeId, syncWithCloud]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('twosome_session', JSON.stringify(user));
-    // 로그인 즉시 동기화하여 내 정보를 서버에 등록
+    // 로그인 즉시 서버 데이터를 긁어와서 내 계정을 서버에 등록
     setTimeout(() => syncWithCloud(true), 500);
   };
 
@@ -328,10 +333,11 @@ const App: React.FC = () => {
   const handleConnectStore = () => {
     const cleanedId = tempInputId.trim().toLowerCase().replace(/\s/g, '');
     if (cleanedId.length > 3) {
-      // 새로운 매장 연결 시 기존 데이터 삭제 후 새로 받기
-      Object.values(DATA_KEYS).forEach(k => localStorage.removeItem(k));
       localStorage.setItem('twosome_store_id', cleanedId);
       setStoreId(cleanedId);
+      // 매장 코드 변경 시 로딩 상태로 강제 전환하여 데이터를 새로 받게 유도
+      setIsInitialized(false);
+      hasLoadedFromServer.current = false;
       window.location.reload();
     } else {
       alert('매장 코드를 4자 이상 입력해주세요.');
@@ -339,14 +345,23 @@ const App: React.FC = () => {
   };
 
   const handleStoreIdUpdate = (newId: string) => {
-    Object.values(DATA_KEYS).forEach(key => localStorage.removeItem(key));
-    if (currentUser) localStorage.setItem('twosome_users', JSON.stringify([currentUser]));
     localStorage.setItem('twosome_store_id', newId);
     setStoreId(newId);
     window.location.reload();
   };
 
-  // 렌더링 로직
+  // 초기 로딩 화면 (데이터 유실 방지 가드)
+  if (!isInitialized && storeId) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
+        <Loader2 className="text-red-600 animate-spin mb-4" size={48} />
+        <h2 className="text-xl font-black text-gray-900 tracking-tighter">매장 데이터 동기화 중...</h2>
+        <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">잠시만 기다려 주세요 (데이터 보호 중)</p>
+      </div>
+    );
+  }
+
+  // 매장 연결 화면
   if (!storeId) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
@@ -369,7 +384,7 @@ const App: React.FC = () => {
     );
   }
 
-  // 로그인 전이라도 유저 목록은 서버에서 가져와야 함
+  // 로그인 화면
   if (!currentUser) return <LoginPage onLogin={handleLogin} onUpdate={() => syncWithCloud(true)} />;
 
   return (
@@ -385,13 +400,7 @@ const App: React.FC = () => {
         <main className="flex-1 pt-16 pb-20 px-4 max-w-6xl mx-auto w-full">
           {syncStatus === 'offline' && (
             <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-[10px] font-black flex items-center gap-2">
-              <CloudOff size={14}/> 오프라인 상태입니다. 데이터 전송이 지연될 수 있습니다.
-            </div>
-          )}
-          {!hasFirstSyncFinished.current && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-100 text-blue-600 rounded-2xl text-center">
-              <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
-              <p className="text-xs font-black">서버에서 최신 데이터를 불러오는 중입니다...</p>
+              <CloudOff size={14}/> 오프라인 상태입니다. 실시간 연동이 중단되었습니다.
             </div>
           )}
           <Routes>
@@ -423,28 +432,42 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
   const [nickname, setNickname] = useState('');
   const [role, setRole] = useState<UserRole>('STAFF');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 로그인 화면 진입 시 서버에서 유저 목록만이라도 먼저 가져오기
+  useEffect(() => {
+    onUpdate();
+  }, [onUpdate]);
 
   const handleAuth = async () => {
     if (id.length < 4 || pw.length !== 4) {
       alert('아이디 4자 이상, 비밀번호 숫자 4자리여야 합니다.');
       return;
     }
+    
+    setIsLoading(true);
+    await onUpdate(); // 최신 유저 목록을 서버에서 한 번 더 긁어옴
+    
     const users = JSON.parse(localStorage.getItem('twosome_users') || '[]');
+    
     if (isSignUp) {
       if (role === 'OWNER') {
         const allowedOwnerIds = ['kms3191', 'ksk545'];
         if (!allowedOwnerIds.includes(id)) {
           alert('승인된 점주 아이디가 아닙니다.');
+          setIsLoading(false);
           return;
         }
       }
       if (users.find((u: User) => u.id === id)) {
         alert('이미 존재하는 아이디입니다.');
+        setIsLoading(false);
         return;
       }
       const newUser: User = { id, passwordHash: pw, nickname, role, updatedAt: Date.now(), startDate };
       const updatedUsers = [...users, newUser];
       localStorage.setItem('twosome_users', JSON.stringify(updatedUsers));
+      // 가입 즉시 서버에 유저 목록 전송 시도
       onUpdate();
       alert('가입 성공! 로그인해주세요.');
       setIsSignUp(false);
@@ -453,10 +476,10 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       if (user) {
         onLogin(user);
       } else {
-        alert('아이디/비번이 틀렸거나 서버 데이터를 아직 다 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
-        onUpdate(); // 재시도 시 동기화 트리거
+        alert('아이디/비번이 틀렸거나 서버 데이터를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
       }
     }
+    setIsLoading(false);
   };
 
   return (
@@ -483,7 +506,14 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
               </div>
             </div>
           )}
-          <button onClick={handleAuth} className="w-full py-5 bg-black text-white rounded-2xl font-black text-lg active:scale-95 transition-transform shadow-xl">{isSignUp ? '가입하기' : '로그인'}</button>
+          <button 
+            disabled={isLoading}
+            onClick={handleAuth} 
+            className="w-full py-5 bg-black text-white rounded-2xl font-black text-lg active:scale-95 transition-transform shadow-xl flex items-center justify-center gap-3"
+          >
+            {isLoading && <Loader2 className="animate-spin" size={20} />}
+            {isSignUp ? '가입하기' : '로그인'}
+          </button>
           <button onClick={() => setIsSignUp(!isSignUp)} className="w-full text-sm font-bold text-gray-400 py-2">{isSignUp ? '이미 계정이 있나요? 로그인' : '처음인가요? 계정 만들기'}</button>
         </div>
       </div>
