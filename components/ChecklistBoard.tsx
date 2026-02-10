@@ -7,12 +7,15 @@ import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Tras
 
 interface ChecklistBoardProps {
   currentUser: User;
+  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
+  externalData?: ChecklistItem[];
   onUpdate?: () => void;
 }
 
-export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onUpdate }) => {
+export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, externalData = [], onUpdate }) => {
   const [activePart, setActivePart] = useState<ShiftPart>('OPEN');
-  const [items, setItems] = useState<ChecklistItem[]>([]);
+  // Initialized state with externalData for cloud synchronization
+  const [items, setItems] = useState<ChecklistItem[]>(externalData);
   const [memo, setMemo] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newItemText, setNewItemText] = useState('');
@@ -31,6 +34,13 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
   const today = getTodayDateString();
   const dayName = getDayOfWeek(today);
 
+  // Synchronize local state when external data changes (e.g., after cloud sync)
+  useEffect(() => {
+    if (externalData && externalData.length > 0) {
+      setItems(externalData);
+    }
+  }, [externalData]);
+
   useEffect(() => {
     const saved = localStorage.getItem('twosome_current_tasks');
     const lastReset = localStorage.getItem('twosome_last_reset');
@@ -46,10 +56,10 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
       localStorage.setItem('twosome_last_reset', today);
       localStorage.setItem('twosome_is_submitted_today', 'false');
     } else {
-      if (saved) setItems(JSON.parse(saved));
+      if (saved && (!externalData || externalData.length === 0)) setItems(JSON.parse(saved));
       setIsSubmitted(localStorage.getItem('twosome_is_submitted_today') === 'true');
     }
-  }, [today]);
+  }, [today, externalData]);
 
   const save = (updated: ChecklistItem[]) => {
     setItems(updated);

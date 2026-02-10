@@ -6,24 +6,23 @@ import { Megaphone, Pin, Plus, Trash2 } from 'lucide-react';
 
 interface NoticeBoardProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
+  externalData?: Notice[];
   onUpdate?: () => void;
 }
 
-export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, onUpdate }) => {
-  const [notices, setNotices] = useState<Notice[]>([]);
+export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, externalData = [], onUpdate }) => {
+  const [notices, setNotices] = useState<Notice[]>(externalData);
   const [isAdding, setIsAdding] = useState(false);
   const [newNotice, setNewNotice] = useState({ title: '', content: '', isPinned: false });
 
+  // 외부 데이터 동기화
   useEffect(() => {
-    const saved = localStorage.getItem('twosome_notices');
-    if (saved) setNotices(JSON.parse(saved));
-  }, []);
+    setNotices(externalData);
+  }, [externalData]);
 
   const saveNotices = (updated: Notice[]) => {
     setNotices(updated);
     localStorage.setItem('twosome_notices', JSON.stringify(updated));
-    // Trigger cloud sync if provided
     onUpdate?.();
   };
 
@@ -60,7 +59,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, onUpdate 
   return (
     <div className="space-y-6 max-w-4xl mx-auto p-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
+        <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
           <Megaphone className="text-red-600" /> 공지사항
         </h2>
         <button 

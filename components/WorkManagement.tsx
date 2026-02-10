@@ -7,12 +7,14 @@ import { Calendar as CalendarIcon, Clock, Star, Users, Plus, X, AlertCircle, Che
 interface WorkManagementProps {
   currentUser: User;
   allUsers: User[];
-  // Added onUpdate prop to fix TypeScript error in App.tsx
+  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
+  externalData?: WorkSchedule[];
   onUpdate?: () => void;
 }
 
-export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, allUsers, onUpdate }) => {
-  const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
+export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, allUsers, externalData = [], onUpdate }) => {
+  // Initialized state with externalData for cloud synchronization
+  const [schedules, setSchedules] = useState<WorkSchedule[]>(externalData);
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [isEditing, setIsEditing] = useState(false);
   const [viewDate, setViewDate] = useState(new Date()); 
@@ -23,10 +25,17 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
     notes: ''
   });
 
+  // Synchronize local state when external data changes (e.g., after cloud sync)
+  useEffect(() => {
+    if (externalData && externalData.length > 0) {
+      setSchedules(externalData);
+    }
+  }, [externalData]);
+
   useEffect(() => {
     const saved = localStorage.getItem('twosome_schedules');
-    if (saved) setSchedules(JSON.parse(saved));
-  }, []);
+    if (saved && (!externalData || externalData.length === 0)) setSchedules(JSON.parse(saved));
+  }, [externalData]);
 
   const saveSchedules = (updated: WorkSchedule[]) => {
     setSchedules(updated);

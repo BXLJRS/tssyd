@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, DailyReport, InventoryItem, AppData } from './types';
+import { User, UserRole, DailyReport, InventoryItem, AppData, Notice, Handover, ChecklistItem, WorkSchedule, Reservation, Recipe } from './types';
 import { NoticeBoard } from './components/NoticeBoard';
 import { HandoverBoard } from './components/HandoverBoard';
 import { ChecklistBoard } from './components/ChecklistBoard';
@@ -16,6 +16,19 @@ import {
   Calendar, Package, ShieldAlert, BookOpen, Home, Bell, 
   Info, Cloud, CloudOff, RefreshCw, Settings, Store, Clock, Book
 } from 'lucide-react';
+
+const INITIAL_APP_DATA: AppData = {
+  users: [],
+  notices: [],
+  handovers: [],
+  inventory: [],
+  reservations: [],
+  schedules: [],
+  reports: [],
+  tasks: [],
+  template: [],
+  recipes: []
+};
 
 const StoreSetupPage: React.FC<{ onComplete: (id: string) => void }> = ({ onComplete }) => {
   const [code, setCode] = useState('');
@@ -203,10 +216,22 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [storeId, setStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('offline');
+  
+  // 전체 앱 데이터를 App 레벨에서 상태로 관리
+  const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
 
+  // 로컬 스토리지를 초기 데이터로 로드
   useEffect(() => {
-    const saved = localStorage.getItem('twosome_session');
-    if (saved) setCurrentUser(JSON.parse(saved));
+    const savedSession = localStorage.getItem('twosome_session');
+    if (savedSession) setCurrentUser(JSON.parse(savedSession));
+
+    const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template', 'recipes'];
+    const localData: any = { ...INITIAL_APP_DATA };
+    keys.forEach(key => {
+      const saved = localStorage.getItem(`twosome_${key}`);
+      if (saved) localData[key] = JSON.parse(saved);
+    });
+    setAppData(localData);
   }, []);
 
   const syncWithCloud = useCallback(async () => {
@@ -220,23 +245,35 @@ const App: React.FC = () => {
       }
 
       const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template', 'recipes'];
-      const currentLocalData: Partial<AppData> = {};
+      const updatedData: any = { ...appData };
+      let hasChanges = false;
       
       keys.forEach(key => {
         const local = JSON.parse(localStorage.getItem(`twosome_${key}`) || '[]');
         const cloud = cloudData?.[key] || [];
         
+        // ID 기준으로 병합 (중복 제거)
         const merged = [...cloud, ...local].filter((v, i, a) => 
-          a.findIndex(t => t.id === v.id) === i
+          a.findIndex(t => (t as any).id === (v as any).id) === i
         );
         
-        localStorage.setItem(`twosome_${key}`, JSON.stringify(merged));
-        currentLocalData[key] = merged as any;
+        // 데이터가 바뀌었는지 확인
+        if (JSON.stringify(appData[key]) !== JSON.stringify(merged)) {
+          updatedData[key] = merged;
+          localStorage.setItem(`twosome_${key}`, JSON.stringify(merged));
+          hasChanges = true;
+        }
       });
 
+      // 상태 업데이트 (화면 리렌더링 유발)
+      if (hasChanges) {
+        setAppData(updatedData);
+      }
+
+      // 클라우드에 최신 데이터 푸시
       await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
         method: 'POST',
-        body: JSON.stringify(currentLocalData),
+        body: JSON.stringify(updatedData),
       });
       
       setSyncStatus('connected');
@@ -244,12 +281,12 @@ const App: React.FC = () => {
       console.error("Sync Error:", e);
       setSyncStatus('offline');
     }
-  }, [storeId]);
+  }, [storeId, appData]);
 
   useEffect(() => {
     if (storeId) {
       syncWithCloud();
-      const interval = setInterval(syncWithCloud, 10000);
+      const interval = setInterval(syncWithCloud, 10000); // 10초마다 동기화
       return () => clearInterval(interval);
     }
   }, [storeId, syncWithCloud]);
@@ -273,14 +310,14 @@ const App: React.FC = () => {
         <Navigation user={currentUser} storeId={storeId} syncStatus={syncStatus} onLogout={handleLogout} />
         <main className="flex-1 pt-16 pb-20 px-4 max-w-4xl mx-auto w-full">
           <Routes>
-            <Route path="/notice" element={<NoticeBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
-            <Route path="/handover" element={<HandoverBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
-            <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
-            <Route path="/attendance" element={<AttendanceCalendar currentUser={currentUser} allUsers={JSON.parse(localStorage.getItem('twosome_users') || '[]')} onUpdate={syncWithCloud} />} />
-            <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
-            <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={JSON.parse(localStorage.getItem('twosome_users') || '[]')} onUpdate={syncWithCloud} />} />
-            <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
-            <Route path="/recipe" element={<RecipeManual currentUser={currentUser} onUpdate={syncWithCloud} />} />
+            <Route path="/notice" element={<NoticeBoard currentUser={currentUser} externalData={appData.notices} onUpdate={syncWithCloud} />} />
+            <Route path="/handover" element={<HandoverBoard currentUser={currentUser} externalData={appData.handovers} onUpdate={syncWithCloud} />} />
+            <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} externalData={appData.tasks} onUpdate={syncWithCloud} />} />
+            <Route path="/attendance" element={<AttendanceCalendar currentUser={currentUser} allUsers={appData.users} externalData={appData.reports} onUpdate={syncWithCloud} />} />
+            <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={syncWithCloud} />} />
+            <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={appData.users} externalData={appData.schedules} onUpdate={syncWithCloud} />} />
+            <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={syncWithCloud} />} />
+            <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={syncWithCloud} />} />
             {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin onStoreIdUpdate={(id) => {setStoreId(id); localStorage.setItem('twosome_store_id', id);}} />} />}
             <Route path="*" element={<Navigate to="/notice" />} />
           </Routes>

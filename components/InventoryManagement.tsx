@@ -6,26 +6,24 @@ import { Package, Plus, Minus, Search, Bell, BellOff, Trash2, ChevronRight, Tag 
 
 interface InventoryManagementProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
+  externalData?: InventoryItem[];
   onUpdate?: () => void;
 }
 
-export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, onUpdate }) => {
-  const [items, setItems] = useState<InventoryItem[]>([]);
+export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, externalData = [], onUpdate }) => {
+  const [items, setItems] = useState<InventoryItem[]>(externalData);
   const [categories, setCategories] = useState<InventoryCategory[]>(INITIAL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', category: INITIAL_CATEGORIES[0], count: 0 });
 
   useEffect(() => {
-    const saved = localStorage.getItem('twosome_inventory');
-    if (saved) setItems(JSON.parse(saved));
-  }, []);
+    setItems(externalData);
+  }, [externalData]);
 
   const save = (updated: InventoryItem[]) => {
     setItems(updated);
     localStorage.setItem('twosome_inventory', JSON.stringify(updated));
-    // Trigger cloud sync if provided
     onUpdate?.();
   };
 

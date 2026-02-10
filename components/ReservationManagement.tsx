@@ -5,20 +5,29 @@ import { Plus, Search, Calendar, Phone, User as UserIcon, Trash2, CheckCircle, C
 
 interface ReservationManagementProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
+  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
+  externalData?: Reservation[];
   onUpdate?: () => void;
 }
 
-export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, onUpdate }) => {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, externalData = [], onUpdate }) => {
+  // Initialized state with externalData for cloud synchronization
+  const [reservations, setReservations] = useState<Reservation[]>(externalData);
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({ customerName: '', phoneNumber: '', date: new Date().toISOString().split('T')[0], time: '12:00', item: '', notes: '' });
 
+  // Synchronize local state when external data changes (e.g., after cloud sync)
+  useEffect(() => {
+    if (externalData && externalData.length > 0) {
+      setReservations(externalData);
+    }
+  }, [externalData]);
+
   useEffect(() => {
     const saved = localStorage.getItem('twosome_reservations');
-    if (saved) setReservations(JSON.parse(saved));
-  }, []);
+    if (saved && (!externalData || externalData.length === 0)) setReservations(JSON.parse(saved));
+  }, [externalData]);
 
   const saveReservations = (updated: Reservation[]) => {
     setReservations(updated);

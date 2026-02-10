@@ -6,12 +6,14 @@ import { ClipboardList, Plus, Trash2, Bold, Palette } from 'lucide-react';
 
 interface HandoverBoardProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
+  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
+  externalData?: Handover[];
   onUpdate?: () => void;
 }
 
-export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpdate }) => {
-  const [handovers, setHandovers] = useState<Handover[]>([]);
+export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, externalData = [], onUpdate }) => {
+  // Initialized state with externalData for cloud synchronization
+  const [handovers, setHandovers] = useState<Handover[]>(externalData);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({ 
     title: '', 
@@ -20,10 +22,17 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpd
     isBold: false 
   });
 
+  // Synchronize local state when external data changes (e.g., after cloud sync)
+  useEffect(() => {
+    if (externalData && externalData.length > 0) {
+      setHandovers(externalData);
+    }
+  }, [externalData]);
+
   useEffect(() => {
     const saved = localStorage.getItem('twosome_handovers');
-    if (saved) setHandovers(JSON.parse(saved));
-  }, []);
+    if (saved && (!externalData || externalData.length === 0)) setHandovers(JSON.parse(saved));
+  }, [externalData]);
 
   const saveHandovers = (updated: Handover[]) => {
     setHandovers(updated);

@@ -7,11 +7,14 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, User as UserIcon, 
 interface AttendanceCalendarProps {
   currentUser: User;
   allUsers: User[];
+  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
+  externalData?: DailyReport[];
   onUpdate?: () => void;
 }
 
-export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentUser, allUsers, onUpdate }) => {
-  const [reports, setReports] = useState<DailyReport[]>([]);
+export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentUser, allUsers, externalData = [], onUpdate }) => {
+  // Initialized state with externalData for cloud synchronization
+  const [reports, setReports] = useState<DailyReport[]>(externalData);
   const [viewDate, setViewDate] = useState(new Date());
   
   // 수동 입력 모달 상태
@@ -24,10 +27,17 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
     hasBreak: true
   });
 
+  // Synchronize local state when external data changes (e.g., after cloud sync)
+  useEffect(() => {
+    if (externalData && externalData.length > 0) {
+      setReports(externalData);
+    }
+  }, [externalData]);
+
   useEffect(() => {
     const saved = localStorage.getItem('twosome_reports');
-    if (saved) setReports(JSON.parse(saved));
-  }, []);
+    if (saved && (!externalData || externalData.length === 0)) setReports(JSON.parse(saved));
+  }, [externalData]);
 
   const saveReports = (updated: DailyReport[]) => {
     setReports(updated);
