@@ -6,6 +6,7 @@ export interface User {
   nickname: string;
   role: UserRole;
   passwordHash: string;
+  updatedAt?: number; // 병합을 위한 시간 기록 추가
 }
 
 export interface Notice {
@@ -16,7 +17,7 @@ export interface Notice {
   authorNickname: string;
   isPinned: boolean;
   createdAt: number;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
 export interface Handover {
@@ -26,7 +27,7 @@ export interface Handover {
   authorId: string;
   authorNickname: string;
   createdAt: number;
-  updatedAt: number; // 추가
+  updatedAt: number;
   styles?: {
     color?: string;
     isBold?: boolean;
@@ -41,7 +42,7 @@ export interface ChecklistItem {
   content: string;
   isCompleted: boolean;
   notes?: string;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
 export interface DailyReport {
@@ -57,7 +58,7 @@ export interface DailyReport {
   actualStartTime?: string;
   actualEndTime?: string;
   hasBreak?: boolean;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
 export interface WorkSchedule {
@@ -69,7 +70,7 @@ export interface WorkSchedule {
   endTime: string;
   hasBreak: boolean;
   notes?: string;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
 export interface InventoryItem {
@@ -78,7 +79,7 @@ export interface InventoryItem {
   name: string;
   count: number;
   alertEnabled: boolean;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
 export interface Reservation {
@@ -91,10 +92,9 @@ export interface Reservation {
   notes: string;
   isCompleted: boolean;
   createdAt: number;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
-// RecipeDetail and RecipeTempOption added to fix missing types
 export interface RecipeDetail {
   content: string;
 }
@@ -114,7 +114,7 @@ export interface Recipe {
   ice?: RecipeTempOption;
   hot?: RecipeTempOption;
   lastUpdated: number;
-  updatedAt: number; // 추가
+  updatedAt: number;
 }
 
 export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
