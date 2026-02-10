@@ -174,7 +174,13 @@ const App: React.FC = () => {
     const localData: any = { ...INITIAL_APP_DATA };
     (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
       const saved = localStorage.getItem(DATA_KEYS[key]);
-      if (saved) localData[key] = JSON.parse(saved);
+      if (saved) {
+        try {
+          localData[key] = JSON.parse(saved);
+        } catch (e) {
+          localData[key] = [];
+        }
+      }
     });
     setAppData(localData);
   }, []);
@@ -186,9 +192,15 @@ const App: React.FC = () => {
   }, [loadLocalData]);
 
   const mergeData = (local: any[], cloud: any[]) => {
+    if (!Array.isArray(cloud)) cloud = [];
+    if (!Array.isArray(local)) local = [];
+    
     const map = new Map();
-    cloud.forEach(item => map.set(item.id, item));
+    // 클라우드 데이터를 먼저 담고
+    cloud.forEach(item => { if (item && item.id) map.set(item.id, item); });
+    // 로컬 데이터 중 최신인 것을 덮어씀
     local.forEach(item => {
+      if (!item || !item.id) return;
       const existing = map.get(item.id);
       if (!existing || (item.updatedAt || 0) > (existing.updatedAt || 0)) {
         map.set(item.id, item);
@@ -205,13 +217,19 @@ const App: React.FC = () => {
     try {
       const res = await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`);
       let cloudData: Partial<AppData> = {};
+      
       if (res.ok) {
-        cloudData = await res.json();
+        const text = await res.text();
+        if (text) cloudData = JSON.parse(text);
       }
 
       const localData: any = {};
       (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
-        localData[key] = JSON.parse(localStorage.getItem(DATA_KEYS[key]) || '[]');
+        try {
+          localData[key] = JSON.parse(localStorage.getItem(DATA_KEYS[key]) || '[]');
+        } catch (e) {
+          localData[key] = [];
+        }
       });
 
       const mergedData: any = {};
@@ -220,7 +238,16 @@ const App: React.FC = () => {
       (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
         const cloudItems = cloudData[key] || [];
         const localItems = localData[key] || [];
-        const merged = mergeData(localItems, cloudItems);
+        let merged = mergeData(localItems, cloudItems);
+
+        // 핵심: 유저 목록 동기화 시 현재 로그인한 사용자가 목록에 없으면 강제 추가
+        if (key === 'users' && currentUser) {
+          const amIInList = merged.some((u: User) => u.id === currentUser.id);
+          if (!amIInList) {
+            merged = [...merged, currentUser];
+            hasChanges = true; // 유저 정보가 추가되었으므로 클라우드에 다시 올려야 함
+          }
+        }
 
         if (JSON.stringify(localItems) !== JSON.stringify(merged) || forcePush) {
           hasChanges = true;
@@ -244,7 +271,7 @@ const App: React.FC = () => {
     } finally {
       isSyncing.current = false;
     }
-  }, [storeId]);
+  }, [storeId, currentUser]);
 
   useEffect(() => {
     if (storeId) {
@@ -276,12 +303,35 @@ const App: React.FC = () => {
     }
   };
 
-  // 사용자 삭제 기능 추가 (점주용)
+  // 사용자 삭제 기능 (점주용)
   const handleDeleteUser = (userId: string) => {
     const updatedUsers = appData.users.filter(u => u.id !== userId);
     localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
     setAppData({ ...appData, users: updatedUsers });
     syncWithCloud(true);
+  };
+
+  const handleStoreIdUpdate = (newId: string) => {
+    // 매장 코드 변경 시 로컬 데이터 클린업 로직
+    // 세션과 스토어ID만 남기고 비즈니스 데이터는 모두 삭제
+    Object.values(DATA_KEYS).forEach(key => {
+      // 'twosome_users'는 보존하거나, 최소한 현재 유저 정보만 남기기
+      if (key !== 'twosome_users') {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // 현재 유저 정보는 유저 목록에 다시 등록되어야 하므로 보존
+    const currentUsers = JSON.parse(localStorage.getItem('twosome_users') || '[]');
+    if (currentUser) {
+      localStorage.setItem('twosome_users', JSON.stringify([currentUser]));
+    } else {
+      localStorage.removeItem('twosome_users');
+    }
+
+    localStorage.setItem('twosome_store_id', newId);
+    setStoreId(newId);
+    window.location.reload();
   };
 
   if (!storeId) {
@@ -324,8 +374,8 @@ const App: React.FC = () => {
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/settings" element={<SettingsPage currentUser={currentUser} currentStoreId={storeId} onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); window.location.reload(); }} />} />
-            {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin externalReports={appData.reports} externalInventory={appData.inventory} onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); syncWithCloud(true); }} />} />}
+            <Route path="/settings" element={<SettingsPage currentUser={currentUser} currentStoreId={storeId} onStoreIdUpdate={handleStoreIdUpdate} />} />
+            {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin externalReports={appData.reports} externalInventory={appData.inventory} onStoreIdUpdate={handleStoreIdUpdate} />} />}
             <Route path="*" element={<Navigate to="/notice" />} />
           </Routes>
         </main>
