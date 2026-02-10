@@ -70,7 +70,6 @@ const Navigation: React.FC<{
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 z-50 shadow-sm">
-        {/* 왼쪽: 로고 및 모바일 메뉴 버튼 */}
         <div className="flex items-center gap-4">
           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 hover:bg-gray-50 rounded-xl md:hidden">
             <Menu size={24} />
@@ -81,7 +80,6 @@ const Navigation: React.FC<{
           </div>
         </div>
 
-        {/* 중앙: PC 전용 메뉴 리스트 (수정 핵심 포인트) */}
         <div className="hidden md:flex items-center gap-1 lg:gap-2">
           {navItems.map(item => (
             <Link 
@@ -99,7 +97,6 @@ const Navigation: React.FC<{
           ))}
         </div>
 
-        {/* 오른쪽: 상태 및 사용자 정보 */}
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100">
             {syncStatus === 'syncing' ? (
@@ -121,7 +118,6 @@ const Navigation: React.FC<{
         </div>
       </nav>
 
-      {/* 모바일 사이드바 Drawer */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[60] md:hidden">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
@@ -149,7 +145,6 @@ const Navigation: React.FC<{
         </div>
       )}
 
-      {/* 모바일 하단 탭바 (md 이상에서 숨김) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around p-2 z-50 md:hidden pb-safe">
          {navItems.slice(0, 4).map(item => (
            <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-1 p-2 transition-all ${location.pathname === item.path ? 'text-red-600' : 'text-gray-300'}`}>
@@ -169,7 +164,6 @@ const App: React.FC = () => {
   const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
   const isSyncing = useRef(false);
 
-  // 로컬 데이터 로드
   const loadLocalData = useCallback(() => {
     const localData: any = { ...INITIAL_APP_DATA };
     (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
@@ -257,6 +251,7 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('twosome_session', JSON.stringify(user));
+    loadLocalData(); // 로그인 성공 시 즉시 로컬 데이터(직원 명단 등)를 상태로 로드
   };
 
   const handleLogout = () => {
@@ -303,7 +298,7 @@ const App: React.FC = () => {
             <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={appData.users} externalData={appData.schedules} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={() => syncWithCloud(true)} />} />
-            {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); syncWithCloud(true); }} />} />}
+            {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin externalReports={appData.reports} externalInventory={appData.inventory} onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); syncWithCloud(true); }} />} />}
             <Route path="*" element={<Navigate to="/notice" />} />
           </Routes>
         </main>
@@ -337,7 +332,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
         alert('이미 존재하는 아이디입니다.');
         return;
       }
-      const newUser: User = { id, passwordHash: pw, nickname, role };
+      const newUser: User = { id, passwordHash: pw, nickname, role, updatedAt: Date.now() };
       const updatedUsers = [...users, newUser];
       localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
       onUpdate();
