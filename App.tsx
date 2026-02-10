@@ -43,7 +43,6 @@ const DATA_KEYS: Record<keyof AppData, string> = {
   recipes: 'twosome_recipes'
 };
 
-// Navigation component added to fix 'Cannot find name Navigation' error
 const Navigation: React.FC<{ 
   user: User, 
   storeId: string, 
@@ -54,13 +53,13 @@ const Navigation: React.FC<{
   const location = useLocation();
 
   const navItems = [
-    { path: '/notice', label: '공지사항', icon: Megaphone },
-    { path: '/handover', label: '인계사항', icon: ClipboardList },
-    { path: '/checklist', label: '체크리스트', icon: CheckSquare },
-    { path: '/attendance', label: '근무기록', icon: Calendar },
-    { path: '/work', label: '근무배정', icon: Clock },
-    { path: '/inventory', label: '재고관리', icon: Package },
-    { path: '/reservation', label: '예약관리', icon: Book },
+    { path: '/notice', label: '공지', icon: Megaphone },
+    { path: '/handover', label: '인계', icon: ClipboardList },
+    { path: '/checklist', label: '업무', icon: CheckSquare },
+    { path: '/attendance', label: '기록', icon: Calendar },
+    { path: '/work', label: '배정', icon: Clock },
+    { path: '/inventory', label: '재고', icon: Package },
+    { path: '/reservation', label: '예약', icon: Book },
     { path: '/recipe', label: '레시피', icon: BookOpen },
   ];
 
@@ -70,39 +69,59 @@ const Navigation: React.FC<{
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 z-50 shadow-sm">
-        <div className="flex items-center gap-2">
+      <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 z-50 shadow-sm">
+        {/* 왼쪽: 로고 및 모바일 메뉴 버튼 */}
+        <div className="flex items-center gap-4">
           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 hover:bg-gray-50 rounded-xl md:hidden">
             <Menu size={24} />
           </button>
-          <div className="flex items-center gap-2 font-black text-xl tracking-tighter">
+          <div className="flex items-center gap-2 font-black text-xl tracking-tighter cursor-pointer">
             <Store className="text-red-600" size={24} />
-            <span className="hidden sm:inline">TWOSOME</span>
+            <span className="hidden sm:inline text-gray-900">TWOSOME</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100">
+        {/* 중앙: PC 전용 메뉴 리스트 (수정 핵심 포인트) */}
+        <div className="hidden md:flex items-center gap-1 lg:gap-2">
+          {navItems.map(item => (
+            <Link 
+              key={item.path} 
+              to={item.path} 
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-black transition-all ${
+                location.pathname === item.path 
+                ? 'text-red-600 bg-red-50' 
+                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <item.icon size={16} />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* 오른쪽: 상태 및 사용자 정보 */}
+        <div className="flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100">
             {syncStatus === 'syncing' ? (
-              <RefreshCw size={14} className="text-blue-500 animate-spin" />
+              <RefreshCw size={12} className="text-blue-500 animate-spin" />
             ) : syncStatus === 'connected' ? (
-              <Cloud size={14} className="text-green-500" />
+              <Cloud size={12} className="text-green-500" />
             ) : (
-              <CloudOff size={14} className="text-gray-400" />
+              <CloudOff size={12} className="text-gray-400" />
             )}
-            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{storeId}</span>
+            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{storeId}</span>
           </div>
           <div className="hidden sm:flex items-center gap-2">
-             <span className="text-xs font-black bg-black text-white px-2 py-1 rounded-md">{user.role}</span>
-             <span className="text-sm font-bold text-gray-700">{user.nickname}님</span>
+             <span className="text-[10px] font-black bg-black text-white px-2 py-0.5 rounded uppercase">{user.role}</span>
+             <span className="text-sm font-bold text-gray-700">{user.nickname}</span>
           </div>
-          <button onClick={onLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors">
+          <button onClick={onLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors ml-2">
             <LogOut size={20} />
           </button>
         </div>
       </nav>
 
-      {/* Mobile Drawer */}
+      {/* 모바일 사이드바 Drawer */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[60] md:hidden">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
@@ -113,7 +132,7 @@ const Navigation: React.FC<{
               </div>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-xl"><X size={20}/></button>
             </div>
-            <div className="flex-1 space-y-2 overflow-y-auto">
+            <div className="flex-1 space-y-1 overflow-y-auto">
               {navItems.map(item => (
                 <Link 
                   key={item.path} 
@@ -130,7 +149,7 @@ const Navigation: React.FC<{
         </div>
       )}
 
-      {/* Bottom Nav for Mobile */}
+      {/* 모바일 하단 탭바 (md 이상에서 숨김) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around p-2 z-50 md:hidden pb-safe">
          {navItems.slice(0, 4).map(item => (
            <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-1 p-2 transition-all ${location.pathname === item.path ? 'text-red-600' : 'text-gray-300'}`}>
@@ -166,12 +185,9 @@ const App: React.FC = () => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 병합 함수: 같은 ID라면 updatedAt이 큰(최신) 데이터를 선택
   const mergeData = (local: any[], cloud: any[]) => {
     const map = new Map();
-    // 서버 데이터를 먼저 넣고
     cloud.forEach(item => map.set(item.id, item));
-    // 로컬 데이터를 넣으면서 비교 (로컬이 더 최신이면 덮어씀)
     local.forEach(item => {
       const existing = map.get(item.id);
       if (!existing || (item.updatedAt || 0) > (existing.updatedAt || 0)) {
@@ -187,30 +203,25 @@ const App: React.FC = () => {
     setSyncStatus('syncing');
 
     try {
-      // 1. 서버 데이터 다운로드
       const res = await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`);
       let cloudData: Partial<AppData> = {};
       if (res.ok) {
         cloudData = await res.json();
       }
 
-      // 2. 현재 로컬 스토리지의 진짜 최신 데이터 읽기
       const localData: any = {};
       (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
         localData[key] = JSON.parse(localStorage.getItem(DATA_KEYS[key]) || '[]');
       });
 
-      // 3. 필드별 병합
       const mergedData: any = {};
       let hasChanges = false;
 
       (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
         const cloudItems = cloudData[key] || [];
         const localItems = localData[key] || [];
-        
         const merged = mergeData(localItems, cloudItems);
 
-        // 변경 사항이 있거나 강제 푸시인 경우
         if (JSON.stringify(localItems) !== JSON.stringify(merged) || forcePush) {
           hasChanges = true;
         }
@@ -218,7 +229,6 @@ const App: React.FC = () => {
         localStorage.setItem(DATA_KEYS[key], JSON.stringify(merged));
       });
 
-      // 4. 상태 업데이트 및 서버 업로드
       if (hasChanges || forcePush) {
         setAppData(mergedData);
         await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
@@ -236,11 +246,10 @@ const App: React.FC = () => {
     }
   }, [storeId]);
 
-  // 주기적 동기화
   useEffect(() => {
     if (storeId) {
       syncWithCloud();
-      const interval = setInterval(() => syncWithCloud(), 8000); // 8초마다
+      const interval = setInterval(() => syncWithCloud(), 8000);
       return () => clearInterval(interval);
     }
   }, [storeId, syncWithCloud]);
@@ -284,7 +293,7 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-50">
         <Navigation user={currentUser} storeId={storeId} syncStatus={syncStatus} onLogout={handleLogout} />
-        <main className="flex-1 pt-16 pb-20 px-4 max-w-4xl mx-auto w-full">
+        <main className="flex-1 pt-16 pb-20 px-4 max-w-6xl mx-auto w-full">
           <Routes>
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} externalData={appData.notices} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} externalData={appData.handovers} onUpdate={() => syncWithCloud(true)} />} />
@@ -315,9 +324,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       alert('아이디 4자 이상, 비밀번호 숫자 4자리여야 합니다.');
       return;
     }
-    
     const users = JSON.parse(localStorage.getItem(DATA_KEYS.users) || '[]');
-    
     if (isSignUp) {
       if (role === 'OWNER') {
         const allowedOwnerIds = ['kms3191', 'ksk545'];
@@ -338,11 +345,8 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       setIsSignUp(false);
     } else {
       const user = users.find((u: User) => u.id === id && u.passwordHash === pw);
-      if (user) {
-        onLogin(user);
-      } else {
-        alert('로그인 정보를 확인해주세요.');
-      }
+      if (user) onLogin(user);
+      else alert('로그인 정보를 확인해주세요.');
     }
   };
 
@@ -351,7 +355,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-gray-100">
         <div className="text-center mb-8">
           <div className="inline-block p-4 bg-red-600 rounded-2xl text-white shadow-lg mb-2"><Home size={32} /></div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tighter">TWOSOME CONNECT</h1>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tighter uppercase">Twosome Connect</h1>
         </div>
         <div className="space-y-4">
           <input type="text" placeholder="아이디" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={id} onChange={e => setId(e.target.value.toLowerCase())} />
