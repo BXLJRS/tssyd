@@ -29,6 +29,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, externalD
   const handleAddNotice = () => {
     if (!newNotice.title || !newNotice.content) return;
     
+    // updatedAt added to satisfy Notice interface requirements
     const notice: Notice = {
       id: Date.now().toString(),
       title: newNotice.title,
@@ -36,7 +37,8 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, externalD
       authorId: currentUser.id,
       authorNickname: currentUser.nickname,
       isPinned: currentUser.role === 'OWNER' ? newNotice.isPinned : false,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
 
     saveNotices([notice, ...notices]);

@@ -38,70 +38,43 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
     }
   }, [externalData]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && (!externalData || externalData.length === 0)) {
-      setItems(JSON.parse(saved));
-    }
-    setIsSubmitted(localStorage.getItem('twosome_is_submitted_today') === 'true');
-  }, [externalData]);
-
   const save = (updated: ChecklistItem[]) => {
-    setItems(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    // 모든 항목에 업데이트 시각 기록
+    const now = Date.now();
+    const itemsWithTime = updated.map(item => ({ ...item, updatedAt: now }));
+    
+    setItems(itemsWithTime);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(itemsWithTime));
+    
     if (currentUser.role === 'OWNER') {
-      localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
+      localStorage.setItem('twosome_tasks_template', JSON.stringify(itemsWithTime));
     }
     onUpdate?.();
   };
 
   const toggle = (id: string) => {
-    save(items.map(i => i.id === id ? { ...i, isCompleted: !i.isCompleted } : i));
+    const updated = items.map(i => i.id === id ? { ...i, isCompleted: !i.isCompleted } : i);
+    save(updated);
   };
 
   const updateNote = (id: string, note: string) => {
     save(items.map(i => i.id === id ? { ...i, notes: note } : i));
   };
 
-  const startEdit = (item: ChecklistItem) => {
-    setEditingId(item.id);
-    setEditValue(item.content);
-  };
-
-  const saveEdit = () => {
-    if (!editingId || !editValue.trim()) return;
-    save(items.map(i => i.id === editingId ? { ...i, content: editValue } : i));
-    setEditingId(null);
-  };
-
-  const moveItem = (id: string, direction: 'up' | 'down') => {
-    const partItems = items.filter(i => i.part === activePart);
-    const index = partItems.findIndex(i => i.id === id);
-    if (index < 0) return;
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === partItems.length - 1) return;
-
-    const newPartItems = [...partItems];
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    [newPartItems[index], newPartItems[targetIdx]] = [newPartItems[targetIdx], newPartItems[index]];
-
-    const otherPartItems = items.filter(i => i.part !== activePart);
-    save([...otherPartItems, ...newPartItems]);
-  };
-
   const addItem = () => {
     if (!newItemText.trim()) return;
     const newItems: ChecklistItem[] = [];
     const baseId = Date.now().toString();
+    const now = Date.now();
+    
     if (newItemPart === 'COMMON') {
       (['OPEN', 'MIDDLE', 'CLOSE21', 'CLOSE22'] as ShiftPart[]).forEach((p, idx) => {
-        newItems.push({ id: `${baseId}-${idx}`, part: p, content: newItemText, isCompleted: false });
+        newItems.push({ id: `${baseId}-${idx}`, part: p, content: newItemText, isCompleted: false, updatedAt: now });
       });
     } else {
-      newItems.push({ id: baseId, part: newItemPart as ShiftPart, content: newItemText, isCompleted: false });
+      newItems.push({ id: baseId, part: newItemPart as ShiftPart, content: newItemText, isCompleted: false, updatedAt: now });
     }
-    const updated = [...items, ...newItems];
-    save(updated);
+    save([...items, ...newItems]);
     setNewItemText('');
     setIsAdding(false);
   };
@@ -120,11 +93,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
       return;
     }
 
-    if (partItems.some(i => !i.isCompleted && !i.notes?.trim())) {
-      alert('체크하지 못한 항목은 사유를 작성해주세요.');
-      return;
-    }
-
     const report: DailyReport = { 
       id: Date.now().toString(),
       date: today, 
@@ -137,7 +105,8 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
       authorNickname: currentUser.nickname,
       actualStartTime: startTime,
       actualEndTime: endTime,
-      hasBreak: hasBreak
+      hasBreak: hasBreak,
+      updatedAt: Date.now()
     };
 
     const reports = JSON.parse(localStorage.getItem('twosome_reports') || '[]');
@@ -145,7 +114,7 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
     
     setIsSubmitted(true);
     localStorage.setItem('twosome_is_submitted_today', 'true');
-    alert('근무 기록 및 보고가 완료되었습니다.');
+    alert('보고가 완료되었습니다.');
     onUpdate?.();
   };
 
@@ -182,35 +151,12 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
               </button>
               <div className="flex-1 space-y-3">
                 <div className="flex justify-between items-start gap-2">
-                  {editingId === item.id ? (
-                    <div className="flex-1 flex gap-2">
-                      <input 
-                        type="text" 
-                        className="flex-1 p-2 bg-gray-50 border rounded-lg font-bold outline-none" 
-                        value={editValue} 
-                        onChange={e => setEditValue(e.target.value)}
-                        autoFocus
-                      />
-                      <button onClick={saveEdit} className="p-2 text-green-600"><Check size={20}/></button>
-                      <button onClick={() => setEditingId(null)} className="p-2 text-gray-400"><X size={20}/></button>
-                    </div>
-                  ) : (
-                    <>
-                      <span className={`font-bold leading-tight ${item.isCompleted ? 'text-gray-300 line-through' : 'text-gray-800 text-lg'}`}>{item.content}</span>
-                      {currentUser.role === 'OWNER' && (
-                        <div className="flex items-center gap-1">
-                          <div className="flex flex-col gap-0.5 mr-1">
-                            <button disabled={idx === 0} onClick={() => moveItem(item.id, 'up')} className="text-gray-300 disabled:opacity-10"><ChevronUp size={16}/></button>
-                            <button disabled={idx === arr.length - 1} onClick={() => moveItem(item.id, 'down')} className="text-gray-300 disabled:opacity-10"><ChevronDown size={16}/></button>
-                          </div>
-                          <button onClick={() => startEdit(item)} className="text-gray-300 p-1 hover:text-blue-500"><Edit3 size={16}/></button>
-                          <button onClick={() => deleteItem(item.id)} className="text-gray-300 p-1 hover:text-red-500"><Trash2 size={16}/></button>
-                        </div>
-                      )}
-                    </>
+                  <span className={`font-bold leading-tight ${item.isCompleted ? 'text-gray-300 line-through' : 'text-gray-800 text-lg'}`}>{item.content}</span>
+                  {currentUser.role === 'OWNER' && (
+                    <button onClick={() => deleteItem(item.id)} className="text-gray-300 p-1 hover:text-red-500"><Trash2 size={16}/></button>
                   )}
                 </div>
-                {!item.isCompleted && editingId !== item.id && (
+                {!item.isCompleted && (
                   <input type="text" placeholder="사유를 작성하세요 (필수)" className="w-full text-sm p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-red-100" value={item.notes || ''} onChange={e => updateNote(item.id, e.target.value)} />
                 )}
               </div>
@@ -221,37 +167,18 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
           )}
         </div>
 
-        <div className="p-6 bg-red-50/30 border-t border-red-100 space-y-4">
-          <h4 className="text-sm font-black text-red-600 flex items-center gap-2">
-            <Clock size={16} /> 실제 근무 정보 입력 (필수)
-          </h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 ml-1">출근 시간</label>
-              <input type="time" className="w-full p-3 bg-white border border-gray-100 rounded-xl font-bold" value={startTime} onChange={e => setStartTime(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 ml-1">퇴근 시간</label>
-              <input type="time" className="w-full p-3 bg-white border border-gray-100 rounded-xl font-bold" value={endTime} onChange={e => setEndTime(e.target.value)} />
-            </div>
-          </div>
-          <button 
-            onClick={() => setHasBreak(!hasBreak)}
-            className={`w-full p-3 rounded-xl flex items-center justify-between border transition-all ${hasBreak ? 'bg-white border-red-200 text-red-600' : 'bg-white border-gray-100 text-gray-400'}`}
-          >
-            <span className="font-bold text-sm">30분 휴게 여부</span>
-            {hasBreak ? <CheckCircle2 size={18} /> : <Square size={18} />}
-          </button>
-        </div>
-
         <div className="p-6 bg-gray-50 border-t space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <input type="time" className="w-full p-3 bg-white border rounded-xl font-bold" value={startTime} onChange={e => setStartTime(e.target.value)} placeholder="출근" />
+            <input type="time" className="w-full p-3 bg-white border rounded-xl font-bold" value={endTime} onChange={e => setEndTime(e.target.value)} placeholder="퇴근" />
+          </div>
           <textarea placeholder="사장님께 전달할 추가 특이사항..." className="w-full p-4 rounded-2xl border border-gray-100 h-24 text-sm font-medium outline-none shadow-inner" value={memo} onChange={e => setMemo(e.target.value)} />
           <button 
             disabled={isSubmitted || !startTime || !endTime} 
             onClick={submit} 
-            className={`w-full py-5 rounded-2xl font-black text-lg shadow-xl transition-all active:scale-95 ${isSubmitted ? 'bg-green-500 text-white' : (!startTime || !endTime ? 'bg-gray-300 text-white' : 'bg-black text-white')}`}
+            className={`w-full py-5 rounded-2xl font-black text-lg shadow-xl transition-all active:scale-95 ${isSubmitted ? 'bg-green-500 text-white' : 'bg-black text-white'}`}
           >
-            {isSubmitted ? '오늘 보고 완료' : '사장님께 보고 및 승인 요청'}
+            {isSubmitted ? '오늘 보고 완료' : '보고 및 승인 요청'}
           </button>
         </div>
       </div>
@@ -263,7 +190,7 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
             <div className="space-y-5">
               <input type="text" placeholder="할 일 내용" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={newItemText} onChange={e => setNewItemText(e.target.value)} />
               <select className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={newItemPart} onChange={e => setNewItemPart(e.target.value as any)}>
-                <option value="COMMON">📢 모든 파트 공통</option>
+                <option value="COMMON">📢 공통</option>
                 <option value="OPEN">☀️ 오픈</option>
                 <option value="MIDDLE">🌤️ 미들</option>
                 <option value="CLOSE21">🌙 21시 마감</option>

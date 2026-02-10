@@ -79,6 +79,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     
+    // updatedAt added to satisfy DailyReport interface requirements
     const newReport: DailyReport = {
       id: `manual-${Date.now()}`,
       date: dateStr,
@@ -91,7 +92,8 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
       authorNickname: targetUser.nickname,
       actualStartTime: manualEntry.startTime,
       actualEndTime: manualEntry.endTime,
-      hasBreak: manualEntry.hasBreak
+      hasBreak: manualEntry.hasBreak,
+      updatedAt: Date.now()
     };
 
     saveReports([...reports, newReport]);

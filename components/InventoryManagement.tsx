@@ -28,11 +28,11 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ curren
   };
 
   const updateCount = (id: string, delta: number) => {
-    save(items.map(i => i.id === id ? { ...i, count: Math.max(0, i.count + delta) } : i));
+    save(items.map(i => i.id === id ? { ...i, count: Math.max(0, i.count + delta), updatedAt: Date.now() } : i));
   };
 
   const toggleAlert = (id: string) => {
-    save(items.map(i => i.id === id ? { ...i, alertEnabled: !i.alertEnabled } : i));
+    save(items.map(i => i.id === id ? { ...i, alertEnabled: !i.alertEnabled, updatedAt: Date.now() } : i));
   };
 
   const deleteItem = (id: string) => {
@@ -89,7 +89,8 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ curren
                 <button onClick={() => setIsAdding(false)} className="flex-1 py-4 font-black text-gray-400">취소</button>
                 <button onClick={() => {
                   if(!newItem.name) return;
-                  save([...items, { id: Date.now().toString(), ...newItem, alertEnabled: false }]);
+                  // updatedAt added to satisfy InventoryItem interface requirements
+                  save([...items, { id: Date.now().toString(), ...newItem, alertEnabled: false, updatedAt: Date.now() }]);
                   setIsAdding(false);
                   setNewItem({ name: '', category: categories[0], count: 0 });
                 }} className="flex-1 py-4 bg-black text-white font-black rounded-2xl shadow-xl">등록</button>

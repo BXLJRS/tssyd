@@ -41,14 +41,21 @@ export const ReservationManagement: React.FC<ReservationManagementProps> = ({ cu
       alert('필수 정보를 입력해 주세요.');
       return;
     }
-    const newRes: Reservation = { id: Date.now().toString(), ...formData, isCompleted: false, createdAt: Date.now() };
+    // updatedAt added to satisfy Reservation interface requirements
+    const newRes: Reservation = { 
+      id: Date.now().toString(), 
+      ...formData, 
+      isCompleted: false, 
+      createdAt: Date.now(), 
+      updatedAt: Date.now() 
+    };
     saveReservations([newRes, ...reservations]);
     setIsAdding(false);
     setFormData({ customerName: '', phoneNumber: '', date: new Date().toISOString().split('T')[0], time: '12:00', item: '', notes: '' });
   };
 
   const toggleComplete = (id: string) => {
-    saveReservations(reservations.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted } : r));
+    saveReservations(reservations.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted, updatedAt: Date.now() } : r));
   };
 
   const deleteRes = (id: string) => {

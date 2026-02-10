@@ -43,6 +43,7 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, exter
 
   const handleAdd = () => {
     if (!formData.title || !formData.content) return;
+    // updatedAt added to satisfy Handover interface requirements
     const item: Handover = {
       id: Date.now().toString(),
       title: formData.title,
@@ -50,6 +51,7 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, exter
       authorId: currentUser.id,
       authorNickname: currentUser.nickname,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       styles: { color: formData.color, isBold: formData.isBold }
     };
     saveHandovers([item, ...handovers]);

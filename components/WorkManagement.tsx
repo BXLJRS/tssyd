@@ -52,6 +52,7 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
     const user = allUsers.find(u => u.id === currentEdit.userId);
     if (!user) return;
 
+    // updatedAt added to satisfy WorkSchedule interface requirements
     const newSchedule: WorkSchedule = {
       id: Date.now().toString(),
       userId: user.id,
@@ -60,7 +61,8 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
       startTime: currentEdit.startTime,
       endTime: currentEdit.endTime,
       hasBreak: !!currentEdit.hasBreak,
-      notes: currentEdit.notes
+      notes: currentEdit.notes || '',
+      updatedAt: Date.now()
     };
     saveSchedules([...schedules, newSchedule]);
     setIsEditing(false);
@@ -211,7 +213,7 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
 
       {isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-fade-in-up">
+          <div className="bg-white rounded-[2.5rem] w-full max-md p-10 shadow-2xl animate-fade-in-up">
             <h3 className="text-2xl font-black text-gray-900 mb-8 tracking-tight">근무자 배정</h3>
             <div className="space-y-6">
               <div className="space-y-2">
