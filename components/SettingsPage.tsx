@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Settings, Store, User as UserIcon, Calendar, ArrowRight, Shield, AlertCircle } from 'lucide-react';
+import { Settings, Store, User as UserIcon, Calendar, ArrowRight, Shield, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 
 interface SettingsPageProps {
   currentUser: User;
@@ -14,18 +14,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, current
   const [isChanged, setIsChanged] = useState(false);
 
   const handleUpdate = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTempId(e.target.value);
-    setIsChanged(e.target.value !== currentStoreId);
+    const val = e.target.value.trim().toLowerCase().replace(/\s/g, '');
+    setTempId(val);
+    setIsChanged(val !== currentStoreId);
   };
 
   const handleSave = () => {
-    const cleaned = tempId.trim().toLowerCase().replace(/\s/g, '');
-    if (cleaned.length < 4) {
+    if (tempId.length < 4) {
       alert('매장 코드는 최소 4자 이상이어야 합니다.');
       return;
     }
-    if (confirm(`매장 코드를 '${cleaned}'(으)로 변경하시겠습니까?\n변경 시 앱이 새로고침되며 해당 매장의 데이터와 동기화됩니다.`)) {
-      onStoreIdUpdate(cleaned);
+    if (confirm(`매장 코드를 '${tempId}'(으)로 변경하시겠습니까?\n변경 시 현재 기기의 모든 데이터가 초기화되고 새 매장 데이터를 불러옵니다.`)) {
+      onStoreIdUpdate(tempId);
+    }
+  };
+
+  const handleReset = () => {
+    if (confirm('주의! 앱의 모든 로컬 데이터를 삭제하고 초기 상태로 되돌립니다. (계정 정보는 유지됩니다) 계속하시겠습니까?')) {
+      localStorage.clear();
+      localStorage.setItem('twosome_session', JSON.stringify(currentUser));
+      localStorage.setItem('twosome_store_id', currentStoreId);
+      window.location.reload();
     }
   };
 
@@ -81,7 +90,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, current
         </div>
         
         <p className="text-sm font-bold text-gray-400 leading-relaxed">
-          현재 접속 중인 매장의 고유 코드입니다. 다른 기기에서도 동일한 코드를 입력하면 공지사항, 근무표, 재고 등의 데이터를 실시간으로 공유할 수 있습니다.
+          현재 접속 중인 매장 코드: <span className="text-black font-black uppercase">{currentStoreId}</span><br/>
+          다른 기기와 연동이 되지 않는다면 매장 코드가 정확한지 확인해 주세요.
         </p>
 
         <div className="space-y-4">
@@ -91,21 +101,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, current
                className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl font-black text-lg outline-none focus:border-red-500 transition-all uppercase tracking-wider"
                value={tempId}
                onChange={handleUpdate}
-               placeholder="매장 코드 입력"
+               placeholder="새 매장 코드 입력"
              />
              <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300 uppercase">
                Store ID
              </div>
           </div>
-
-          {isChanged && (
-            <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-3">
-              <AlertCircle className="text-orange-500 shrink-0 mt-0.5" size={18} />
-              <p className="text-[11px] font-bold text-orange-700">
-                매장 코드를 변경하면 이전 매장의 데이터는 보이지 않으며, 새로운 매장 코드로 동기화가 시작됩니다. 올바른 코드인지 확인해 주세요.
-              </p>
-            </div>
-          )}
 
           <button 
             disabled={!isChanged}
@@ -119,8 +120,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, current
         </div>
       </section>
 
+      {/* 데이터 리셋 섹션 */}
+      <section className="bg-red-50 p-8 rounded-[2.5rem] border border-red-100 space-y-4">
+        <h3 className="text-lg font-black text-red-600 flex items-center gap-2">
+          <AlertCircle size={20}/> 데이터 초기화
+        </h3>
+        <p className="text-xs font-bold text-red-400">앱의 동기화가 꼬였거나 내용이 보이지 않을 때 이 버튼을 눌러보세요.</p>
+        <button 
+          onClick={handleReset}
+          className="w-full py-4 bg-white border border-red-200 text-red-600 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
+        >
+          <RefreshCw size={18}/> 앱 데이터 재설정
+        </button>
+      </section>
+
       <footer className="text-center">
-        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Twosome Manager Pro v1.2.0</p>
+        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Twosome Manager Pro v1.3.0</p>
       </footer>
     </div>
   );
