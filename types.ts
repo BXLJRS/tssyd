@@ -49,7 +49,6 @@ export interface DailyReport {
   memoToOwner: string;
   isApproved: boolean;
   submittedAt: number;
-  // 실제 근무 정보 필드 추가
   authorNickname: string;
   authorId: string;
   actualStartTime?: string;
@@ -88,6 +87,28 @@ export interface Reservation {
   createdAt: number;
 }
 
+// 레시피 관련 타입
+export interface RecipeSizeDetail {
+  content: string;
+}
+
+export interface RecipeTempOption {
+  regular: RecipeSizeDetail;
+  large: RecipeSizeDetail;
+  max: RecipeSizeDetail;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  category: string;
+  hasIce: boolean;
+  hasHot: boolean;
+  ice?: RecipeTempOption;
+  hot?: RecipeTempOption;
+  lastUpdated: number;
+}
+
 export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
 
 export interface AppData {
@@ -100,4 +121,5 @@ export interface AppData {
   reports: DailyReport[];
   tasks: ChecklistItem[];
   template: ChecklistItem[];
+  recipes: Recipe[];
 }

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, ShiftPart, ChecklistItem, DailyReport } from '../types';
 import { SHIFT_LABELS } from '../constants';
 import { getTodayDateString, getDayOfWeek } from '../utils';
-import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Trash2, Coffee } from 'lucide-react';
+import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Trash2, Coffee, Edit3, ChevronUp, ChevronDown, Check, X } from 'lucide-react';
 
 interface ChecklistBoardProps {
   currentUser: User;
@@ -18,6 +18,10 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
   const [newItemText, setNewItemText] = useState('');
   const [newItemPart, setNewItemPart] = useState<ShiftPart | 'COMMON'>('OPEN');
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // 수정 모드 상태
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   // 근무 시간 입력 상태
   const [startTime, setStartTime] = useState('');
@@ -50,6 +54,7 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
   const save = (updated: ChecklistItem[]) => {
     setItems(updated);
     localStorage.setItem('twosome_current_tasks', JSON.stringify(updated));
+    // 점주가 수정한 경우 템플릿도 자동 업데이트 (내일도 적용되게 함)
     if (currentUser.role === 'OWNER') {
       localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
     }
@@ -62,6 +67,33 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
 
   const updateNote = (id: string, note: string) => {
     save(items.map(i => i.id === id ? { ...i, notes: note } : i));
+  };
+
+  const startEdit = (item: ChecklistItem) => {
+    setEditingId(item.id);
+    setEditValue(item.content);
+  };
+
+  const saveEdit = () => {
+    if (!editingId || !editValue.trim()) return;
+    save(items.map(i => i.id === editingId ? { ...i, content: editValue } : i));
+    setEditingId(null);
+  };
+
+  const moveItem = (id: string, direction: 'up' | 'down') => {
+    const partItems = items.filter(i => i.part === activePart);
+    const index = partItems.findIndex(i => i.id === id);
+    if (index < 0) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === partItems.length - 1) return;
+
+    const newPartItems = [...partItems];
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    [newPartItems[index], newPartItems[targetIdx]] = [newPartItems[targetIdx], newPartItems[index]];
+
+    // 전체 리스트에서 해당 파트만 교체
+    const otherPartItems = items.filter(i => i.part !== activePart);
+    save([...otherPartItems, ...newPartItems]);
   };
 
   const addItem = () => {
@@ -77,9 +109,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     }
     const updated = [...items, ...newItems];
     save(updated);
-    if (currentUser.role !== 'OWNER') {
-      localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
-    }
     setNewItemText('');
     setIsAdding(false);
   };
@@ -93,7 +122,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     const partItems = items.filter(i => i.part === activePart);
     if (partItems.length === 0) return;
     
-    // 필수 입력 체크
     if (!startTime || !endTime) {
       alert('근무 시작 시간과 종료 시간을 입력해주세요.');
       return;
@@ -122,7 +150,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     const reports = JSON.parse(localStorage.getItem('twosome_reports') || '[]');
     localStorage.setItem('twosome_reports', JSON.stringify([...reports, report]));
     
-    // 호환성을 위해 pending_reports도 업데이트
     const pendingReports = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
     localStorage.setItem('twosome_pending_reports', JSON.stringify([...pendingReports, report]));
 
@@ -158,17 +185,42 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
           <span className="font-black text-gray-700">{SHIFT_LABELS[activePart]} 필수 체크</span>
         </div>
         <div className="divide-y divide-gray-50">
-          {items.filter(i => i.part === activePart).map(item => (
+          {items.filter(i => i.part === activePart).map((item, idx, arr) => (
             <div key={item.id} className="p-5 flex items-start gap-4">
               <button onClick={() => toggle(item.id)} className="mt-1 flex-shrink-0">
                 {item.isCompleted ? <CheckCircle2 className="text-red-600" size={28} /> : <Square className="text-gray-200" size={28} />}
               </button>
               <div className="flex-1 space-y-3">
                 <div className="flex justify-between items-start gap-2">
-                  <span className={`font-bold leading-tight ${item.isCompleted ? 'text-gray-300 line-through' : 'text-gray-800 text-lg'}`}>{item.content}</span>
-                  {currentUser.role === 'OWNER' && <button onClick={() => deleteItem(item.id)} className="text-gray-300 p-1"><Trash2 size={16}/></button>}
+                  {editingId === item.id ? (
+                    <div className="flex-1 flex gap-2">
+                      <input 
+                        type="text" 
+                        className="flex-1 p-2 bg-gray-50 border rounded-lg font-bold outline-none" 
+                        value={editValue} 
+                        onChange={e => setEditValue(e.target.value)}
+                        autoFocus
+                      />
+                      <button onClick={saveEdit} className="p-2 text-green-600"><Check size={20}/></button>
+                      <button onClick={() => setEditingId(null)} className="p-2 text-gray-400"><X size={20}/></button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className={`font-bold leading-tight ${item.isCompleted ? 'text-gray-300 line-through' : 'text-gray-800 text-lg'}`}>{item.content}</span>
+                      {currentUser.role === 'OWNER' && (
+                        <div className="flex items-center gap-1">
+                          <div className="flex flex-col gap-0.5 mr-1">
+                            <button disabled={idx === 0} onClick={() => moveItem(item.id, 'up')} className="text-gray-300 disabled:opacity-10"><ChevronUp size={16}/></button>
+                            <button disabled={idx === arr.length - 1} onClick={() => moveItem(item.id, 'down')} className="text-gray-300 disabled:opacity-10"><ChevronDown size={16}/></button>
+                          </div>
+                          <button onClick={() => startEdit(item)} className="text-gray-300 p-1 hover:text-blue-500"><Edit3 size={16}/></button>
+                          <button onClick={() => deleteItem(item.id)} className="text-gray-300 p-1 hover:text-red-500"><Trash2 size={16}/></button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                {!item.isCompleted && (
+                {!item.isCompleted && editingId !== item.id && (
                   <input type="text" placeholder="사유를 작성하세요 (필수)" className="w-full text-sm p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-red-100" value={item.notes || ''} onChange={e => updateNote(item.id, e.target.value)} />
                 )}
               </div>
@@ -179,7 +231,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
           )}
         </div>
 
-        {/* 근무 시간 정보 입력 섹션 */}
         <div className="p-6 bg-red-50/30 border-t border-red-100 space-y-4">
           <h4 className="text-sm font-black text-red-600 flex items-center gap-2">
             <Clock size={16} /> 실제 근무 정보 입력 (필수)
@@ -212,7 +263,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
           >
             {isSubmitted ? '오늘 보고 완료' : '사장님께 보고 및 승인 요청'}
           </button>
-          {(!startTime || !endTime) && !isSubmitted && <p className="text-[10px] text-center text-red-500 font-bold">근무 시간을 입력해야 보고할 수 있습니다.</p>}
         </div>
       </div>
 

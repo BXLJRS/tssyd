@@ -9,11 +9,12 @@ import { WorkManagement } from './components/WorkManagement';
 import { AttendanceCalendar } from './components/AttendanceCalendar';
 import { InventoryManagement } from './components/InventoryManagement';
 import { ReservationManagement } from './components/ReservationManagement';
+import { RecipeManual } from './components/RecipeManual';
 import { OwnerAdmin } from './components/OwnerAdmin';
 import { 
   LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, 
   Calendar, Package, ShieldAlert, BookOpen, Home, Bell, 
-  Info, Cloud, CloudOff, RefreshCw, Settings, Store, Clock
+  Info, Cloud, CloudOff, RefreshCw, Settings, Store, Clock, Book
 } from 'lucide-react';
 
 const StoreSetupPage: React.FC<{ onComplete: (id: string) => void }> = ({ onComplete }) => {
@@ -130,8 +131,8 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
   const mainLinks = [
     { path: '/notice', label: '공지', icon: <Megaphone size={20} /> },
     { path: '/checklist', label: '업무', icon: <CheckSquare size={20} /> },
-    { path: '/attendance', label: '근무표', icon: <Calendar size={20} /> }, // '근무표' 메뉴를 전면으로
-    { path: '/inventory', label: '재고', icon: <Package size={20} /> },
+    { path: '/recipe', label: '레시피', icon: <Book size={20} /> }, // 레시피 추가
+    { path: '/attendance', label: '근무표', icon: <Calendar size={20} /> },
   ];
 
   return (
@@ -175,10 +176,11 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
               <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="space-y-4 flex-1">
-              <Link to="/attendance" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-red-50 text-red-600"><Calendar size={20} /> 실시간 근무표</Link>
+              <Link to="/recipe" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-red-50 text-red-600"><Book size={20} /> 레시피북</Link>
+              <Link to="/attendance" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Calendar size={20} /> 실시간 근무표</Link>
               <Link to="/handover" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><ClipboardList size={20} /> 인계인수</Link>
               <Link to="/reservation" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><BookOpen size={20} /> 예약관리</Link>
-              <Link to="/work" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Clock size={20} /> 근무 계획</Link>
+              <Link to="/inventory" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Package size={20} /> 재고 관리</Link>
               {user.role === 'OWNER' && <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-black text-white"><ShieldAlert size={20} /> 점주 관리 센터</Link>}
             </div>
             <div className="mt-auto pt-6 border-t flex items-center justify-between">
@@ -215,7 +217,7 @@ const App: React.FC = () => {
         cloudData = await res.json();
       }
 
-      const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template'];
+      const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template', 'recipes'];
       const currentLocalData: Partial<AppData> = {};
       
       keys.forEach(key => {
@@ -276,6 +278,7 @@ const App: React.FC = () => {
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={JSON.parse(localStorage.getItem('twosome_users') || '[]')} onUpdate={syncWithCloud} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
+            <Route path="/recipe" element={<RecipeManual currentUser={currentUser} onUpdate={syncWithCloud} />} />
             {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin onStoreIdUpdate={(id) => {setStoreId(id); localStorage.setItem('twosome_store_id', id);}} />} />}
             <Route path="*" element={<Navigate to="/notice" />} />
           </Routes>
