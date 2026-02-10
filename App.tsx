@@ -129,10 +129,11 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
   const location = useLocation();
 
   const mainLinks = [
-    { path: '/notice', label: '공지', icon: <Megaphone size={20} /> },
-    { path: '/checklist', label: '업무', icon: <CheckSquare size={20} /> },
-    { path: '/recipe', label: '레시피', icon: <Book size={20} /> }, // 레시피 추가
-    { path: '/attendance', label: '근무표', icon: <Calendar size={20} /> },
+    { path: '/notice', label: '공지', icon: <Megaphone size={18} /> },
+    { path: '/checklist', label: '업무', icon: <CheckSquare size={18} /> },
+    { path: '/recipe', label: '레시피', icon: <Book size={18} /> },
+    { path: '/inventory', label: '재고', icon: <Package size={18} /> },
+    { path: '/attendance', label: '근무표', icon: <Calendar size={18} /> },
   ];
 
   return (
@@ -146,25 +147,25 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
           </div>
         </div>
         <button onClick={() => setIsOpen(true)} className="p-2 text-gray-800 md:hidden"><Menu size={24} /></button>
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-4 lg:gap-6">
           {mainLinks.map(link => (
             <Link key={link.path} to={link.path} className={`text-sm font-bold ${location.pathname === link.path ? 'text-red-600' : 'text-gray-500'}`}>{link.label}</Link>
           ))}
-          {user.role === 'OWNER' && <Link to="/admin" className="text-sm font-bold text-black">관리자</Link>}
+          {user.role === 'OWNER' && <Link to="/admin" className={`text-sm font-bold ${location.pathname === '/admin' ? 'text-red-600' : 'text-black'}`}>관리자</Link>}
           <button onClick={onLogout} className="text-sm font-bold text-gray-400"><LogOut size={18} /></button>
         </div>
       </header>
 
-      <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around items-center h-16 pb-safe z-40 px-2 shadow-lg">
+      <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around items-center h-16 pb-safe z-40 px-1 shadow-lg">
         {mainLinks.map(link => (
-          <Link key={link.path} to={link.path} className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === link.path ? 'text-red-600' : 'text-gray-400'}`}>
-            {React.cloneElement(link.icon as React.ReactElement<any>, { size: 22 })}
-            <span className="text-[10px] font-black mt-1">{link.label}</span>
+          <Link key={link.path} to={link.path} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${location.pathname === link.path ? 'text-red-600' : 'text-gray-400'}`}>
+            {React.cloneElement(link.icon as React.ReactElement<any>, { size: 20 })}
+            <span className="text-[9px] font-black mt-1 leading-none">{link.label}</span>
           </Link>
         ))}
-        <Link to={user.role === 'OWNER' ? "/admin" : "/reservation"} className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/admin' || location.pathname === '/reservation' ? 'text-red-600' : 'text-gray-400'}`}>
-          {user.role === 'OWNER' ? <ShieldAlert size={22} /> : <BookOpen size={22} />}
-          <span className="text-[10px] font-black mt-1">{user.role === 'OWNER' ? '관리' : '예약'}</span>
+        <Link to={user.role === 'OWNER' ? "/admin" : "/reservation"} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${location.pathname === '/admin' || location.pathname === '/reservation' ? 'text-red-600' : 'text-gray-400'}`}>
+          {user.role === 'OWNER' ? <ShieldAlert size={20} /> : <BookOpen size={20} />}
+          <span className="text-[9px] font-black mt-1 leading-none">{user.role === 'OWNER' ? '관리' : '예약'}</span>
         </Link>
       </div>
 
@@ -177,10 +178,11 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
             </div>
             <div className="space-y-4 flex-1">
               <Link to="/recipe" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-red-50 text-red-600"><Book size={20} /> 레시피북</Link>
+              <Link to="/checklist" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><CheckSquare size={20} /> 업무 체크리스트</Link>
+              <Link to="/inventory" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Package size={20} /> 재고 관리</Link>
               <Link to="/attendance" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Calendar size={20} /> 실시간 근무표</Link>
               <Link to="/handover" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><ClipboardList size={20} /> 인계인수</Link>
               <Link to="/reservation" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><BookOpen size={20} /> 예약관리</Link>
-              <Link to="/inventory" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Package size={20} /> 재고 관리</Link>
               {user.role === 'OWNER' && <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-black text-white"><ShieldAlert size={20} /> 점주 관리 센터</Link>}
             </div>
             <div className="mt-auto pt-6 border-t flex items-center justify-between">
