@@ -7,14 +7,14 @@ import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Tras
 
 interface ChecklistBoardProps {
   currentUser: User;
-  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
   externalData?: ChecklistItem[];
   onUpdate?: () => void;
 }
 
+const STORAGE_KEY = 'twosome_tasks';
+
 export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, externalData = [], onUpdate }) => {
   const [activePart, setActivePart] = useState<ShiftPart>('OPEN');
-  // Initialized state with externalData for cloud synchronization
   const [items, setItems] = useState<ChecklistItem[]>(externalData);
   const [memo, setMemo] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -22,11 +22,9 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
   const [newItemPart, setNewItemPart] = useState<ShiftPart | 'COMMON'>('OPEN');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // 수정 모드 상태
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  // 근무 시간 입력 상태
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [hasBreak, setHasBreak] = useState(true);
@@ -34,7 +32,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
   const today = getTodayDateString();
   const dayName = getDayOfWeek(today);
 
-  // Synchronize local state when external data changes (e.g., after cloud sync)
   useEffect(() => {
     if (externalData && externalData.length > 0) {
       setItems(externalData);
@@ -42,29 +39,16 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
   }, [externalData]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('twosome_current_tasks');
-    const lastReset = localStorage.getItem('twosome_last_reset');
-    const now = new Date();
-    const todayResetTime = new Date();
-    todayResetTime.setHours(8, 0, 0, 0);
-
-    if (now >= todayResetTime && (!lastReset || lastReset !== today)) {
-      const template = JSON.parse(localStorage.getItem('twosome_tasks_template') || '[]');
-      const resetTasks = template.map((t: ChecklistItem) => ({ ...t, isCompleted: false, notes: '' }));
-      setItems(resetTasks);
-      localStorage.setItem('twosome_current_tasks', JSON.stringify(resetTasks));
-      localStorage.setItem('twosome_last_reset', today);
-      localStorage.setItem('twosome_is_submitted_today', 'false');
-    } else {
-      if (saved && (!externalData || externalData.length === 0)) setItems(JSON.parse(saved));
-      setIsSubmitted(localStorage.getItem('twosome_is_submitted_today') === 'true');
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && (!externalData || externalData.length === 0)) {
+      setItems(JSON.parse(saved));
     }
-  }, [today, externalData]);
+    setIsSubmitted(localStorage.getItem('twosome_is_submitted_today') === 'true');
+  }, [externalData]);
 
   const save = (updated: ChecklistItem[]) => {
     setItems(updated);
-    localStorage.setItem('twosome_current_tasks', JSON.stringify(updated));
-    // 점주가 수정한 경우 템플릿도 자동 업데이트 (내일도 적용되게 함)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     if (currentUser.role === 'OWNER') {
       localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
     }
@@ -101,7 +85,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
     [newPartItems[index], newPartItems[targetIdx]] = [newPartItems[targetIdx], newPartItems[index]];
 
-    // 전체 리스트에서 해당 파트만 교체
     const otherPartItems = items.filter(i => i.part !== activePart);
     save([...otherPartItems, ...newPartItems]);
   };
@@ -160,9 +143,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, ext
     const reports = JSON.parse(localStorage.getItem('twosome_reports') || '[]');
     localStorage.setItem('twosome_reports', JSON.stringify([...reports, report]));
     
-    const pendingReports = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
-    localStorage.setItem('twosome_pending_reports', JSON.stringify([...pendingReports, report]));
-
     setIsSubmitted(true);
     localStorage.setItem('twosome_is_submitted_today', 'true');
     alert('근무 기록 및 보고가 완료되었습니다.');

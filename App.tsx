@@ -30,6 +30,20 @@ const INITIAL_APP_DATA: AppData = {
   recipes: []
 };
 
+// 동기화에 사용할 고정 키 맵 (중요: 모든 컴포넌트와 일치해야 함)
+const DATA_KEYS: Record<keyof AppData, string> = {
+  users: 'twosome_users',
+  notices: 'twosome_notices',
+  handovers: 'twosome_handovers',
+  inventory: 'twosome_inventory',
+  reservations: 'twosome_reservations',
+  schedules: 'twosome_schedules',
+  reports: 'twosome_reports',
+  tasks: 'twosome_tasks', // ChecklistBoard와 일치시킴
+  template: 'twosome_tasks_template',
+  recipes: 'twosome_recipes'
+};
+
 const StoreSetupPage: React.FC<{ onComplete: (id: string) => void }> = ({ onComplete }) => {
   const [code, setCode] = useState('');
   return (
@@ -73,7 +87,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       return;
     }
     
-    const users = JSON.parse(localStorage.getItem('twosome_users') || '[]');
+    const users = JSON.parse(localStorage.getItem(DATA_KEYS.users) || '[]');
     
     if (isSignUp) {
       if (role === 'OWNER') {
@@ -89,7 +103,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       }
       const newUser: User = { id, passwordHash: pw, nickname, role };
       const updatedUsers = [...users, newUser];
-      localStorage.setItem('twosome_users', JSON.stringify(updatedUsers));
+      localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
       onUpdate();
       alert('가입 성공! 로그인해주세요.');
       setIsSignUp(false);
@@ -216,64 +230,94 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [storeId, setStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('offline');
-  
-  // 전체 앱 데이터를 App 레벨에서 상태로 관리
   const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
 
-  // 로컬 스토리지를 초기 데이터로 로드
+  // 중앙 리셋 로직 (오전 8시)
+  const checkAndResetTasks = useCallback((currentTasks: ChecklistItem[]) => {
+    const lastReset = localStorage.getItem('twosome_last_reset');
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const resetTime = new Date();
+    resetTime.setHours(8, 0, 0, 0);
+
+    if (now >= resetTime && lastReset !== todayStr) {
+      console.log("Central Reset Triggered");
+      const template = JSON.parse(localStorage.getItem(DATA_KEYS.template) || '[]');
+      const resetTasks = template.map((t: ChecklistItem) => ({ ...t, isCompleted: false, notes: '' }));
+      localStorage.setItem('twosome_last_reset', todayStr);
+      localStorage.setItem('twosome_is_submitted_today', 'false');
+      return resetTasks;
+    }
+    return currentTasks;
+  }, []);
+
+  const loadLocalData = useCallback(() => {
+    const localData: any = { ...INITIAL_APP_DATA };
+    (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
+      const saved = localStorage.getItem(DATA_KEYS[key]);
+      if (saved) localData[key] = JSON.parse(saved);
+    });
+    
+    // 리셋 체크 후 상태 업데이트
+    localData.tasks = checkAndResetTasks(localData.tasks);
+    localStorage.setItem(DATA_KEYS.tasks, JSON.stringify(localData.tasks));
+    
+    setAppData(localData);
+  }, [checkAndResetTasks]);
+
   useEffect(() => {
     const savedSession = localStorage.getItem('twosome_session');
     if (savedSession) setCurrentUser(JSON.parse(savedSession));
-
-    const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template', 'recipes'];
-    const localData: any = { ...INITIAL_APP_DATA };
-    keys.forEach(key => {
-      const saved = localStorage.getItem(`twosome_${key}`);
-      if (saved) localData[key] = JSON.parse(saved);
-    });
-    setAppData(localData);
-  }, []);
+    loadLocalData();
+  }, [loadLocalData]);
 
   const syncWithCloud = useCallback(async () => {
     if (!storeId) return;
     setSyncStatus('syncing');
     try {
+      // 1. 클라우드에서 최신 데이터 가져오기
       const res = await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`);
-      let cloudData: AppData | null = null;
+      let cloudData: Partial<AppData> = {};
       if (res.ok) {
         cloudData = await res.json();
       }
 
-      const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template', 'recipes'];
-      const updatedData: any = { ...appData };
-      let hasChanges = false;
-      
-      keys.forEach(key => {
-        const local = JSON.parse(localStorage.getItem(`twosome_${key}`) || '[]');
-        const cloud = cloudData?.[key] || [];
-        
-        // ID 기준으로 병합 (중복 제거)
-        const merged = [...cloud, ...local].filter((v, i, a) => 
-          a.findIndex(t => (t as any).id === (v as any).id) === i
-        );
-        
-        // 데이터가 바뀌었는지 확인
-        if (JSON.stringify(appData[key]) !== JSON.stringify(merged)) {
-          updatedData[key] = merged;
-          localStorage.setItem(`twosome_${key}`, JSON.stringify(merged));
-          hasChanges = true;
-        }
+      // 2. 현재 내 기기의 최신 로컬 데이터 가져오기
+      const localData: any = {};
+      (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
+        localData[key] = JSON.parse(localStorage.getItem(DATA_KEYS[key]) || '[]');
       });
 
-      // 상태 업데이트 (화면 리렌더링 유발)
+      // 3. 병합 (Merge) - ID 기준
+      const mergedData: any = {};
+      let hasChanges = false;
+
+      (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
+        const cloudItems = cloudData[key] || [];
+        const localItems = localData[key] || [];
+
+        // 로컬 데이터를 먼저 넣고 클라우드 데이터 중 없는 것만 추가 (로컬 변경 우선)
+        // 단, 업무 체크 리스트처럼 상태가 중요한 것은 ID 기준으로 가장 최신 것을 병합
+        const merged = [...localItems, ...cloudItems].filter((v, i, a) => 
+          a.findIndex(t => (t as any).id === (v as any).id) === i
+        );
+
+        if (JSON.stringify(localData[key]) !== JSON.stringify(merged)) {
+          hasChanges = true;
+        }
+        mergedData[key] = merged;
+        localStorage.setItem(DATA_KEYS[key], JSON.stringify(merged));
+      });
+
+      // 4. 상태 업데이트
       if (hasChanges) {
-        setAppData(updatedData);
+        setAppData(mergedData);
       }
 
-      // 클라우드에 최신 데이터 푸시
+      // 5. 서버에 푸시
       await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
         method: 'POST',
-        body: JSON.stringify(updatedData),
+        body: JSON.stringify(mergedData),
       });
       
       setSyncStatus('connected');
@@ -281,12 +325,12 @@ const App: React.FC = () => {
       console.error("Sync Error:", e);
       setSyncStatus('offline');
     }
-  }, [storeId, appData]);
+  }, [storeId]);
 
   useEffect(() => {
     if (storeId) {
       syncWithCloud();
-      const interval = setInterval(syncWithCloud, 10000); // 10초마다 동기화
+      const interval = setInterval(syncWithCloud, 10000);
       return () => clearInterval(interval);
     }
   }, [storeId, syncWithCloud]);
