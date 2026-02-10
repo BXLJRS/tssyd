@@ -7,9 +7,11 @@ import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Tras
 
 interface ChecklistBoardProps {
   currentUser: User;
+  // Added onUpdate prop to fix TypeScript error in App.tsx
+  onUpdate?: () => void;
 }
 
-export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser }) => {
+export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onUpdate }) => {
   const [activePart, setActivePart] = useState<ShiftPart>('OPEN');
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [memo, setMemo] = useState('');
@@ -47,6 +49,8 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser }) =
     if (currentUser.role === 'OWNER') {
       localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
     }
+    // Trigger cloud sync if provided
+    onUpdate?.();
   };
 
   const toggle = (id: string) => {
@@ -96,6 +100,8 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser }) =
     setIsSubmitted(true);
     localStorage.setItem('twosome_is_submitted_today', 'true');
     alert('승인 요청이 완료되었습니다.');
+    // Trigger cloud sync if provided
+    onUpdate?.();
   };
 
   return (

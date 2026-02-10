@@ -6,9 +6,11 @@ import { ClipboardList, Plus, Trash2, Bold, Palette } from 'lucide-react';
 
 interface HandoverBoardProps {
   currentUser: User;
+  // Added onUpdate prop to fix TypeScript error in App.tsx
+  onUpdate?: () => void;
 }
 
-export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser }) => {
+export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpdate }) => {
   const [handovers, setHandovers] = useState<Handover[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -26,6 +28,8 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser }) => 
   const saveHandovers = (updated: Handover[]) => {
     setHandovers(updated);
     localStorage.setItem('twosome_handovers', JSON.stringify(updated));
+    // Trigger cloud sync if provided
+    onUpdate?.();
   };
 
   const handleAdd = () => {

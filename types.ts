@@ -3,7 +3,7 @@ export type UserRole = 'OWNER' | 'STAFF';
 
 export interface User {
   id: string;
-  nickname: string; // Must include real name
+  nickname: string;
   role: UserRole;
   passwordHash: string;
 }
@@ -14,7 +14,7 @@ export interface Notice {
   content: string;
   authorId: string;
   authorNickname: string;
-  isPinned: boolean; // Pinned only by Owners
+  isPinned: boolean;
   createdAt: number;
 }
 
@@ -39,7 +39,6 @@ export interface ChecklistItem {
   content: string;
   isCompleted: boolean;
   notes?: string;
-  lastModifiedBy?: string;
 }
 
 export interface DailyReport {
@@ -55,10 +54,10 @@ export interface WorkSchedule {
   id: string;
   userId: string;
   userName: string;
-  date: string; // YYYY-MM-DD
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
-  hasBreak: boolean; // Auto 30 min
+  date: string;
+  startTime: string;
+  endTime: string;
+  hasBreak: boolean;
   notes?: string;
 }
 
@@ -83,3 +82,15 @@ export interface Reservation {
 }
 
 export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
+
+export interface AppData {
+  users: User[]; // 사용자 명단 동기화 추가
+  notices: Notice[];
+  handovers: Handover[];
+  inventory: InventoryItem[];
+  reservations: Reservation[];
+  schedules: WorkSchedule[];
+  reports: DailyReport[];
+  tasks: ChecklistItem[];
+  template: ChecklistItem[];
+}

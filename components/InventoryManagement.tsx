@@ -6,9 +6,11 @@ import { Package, Plus, Minus, Search, Bell, BellOff, Trash2, ChevronRight, Tag 
 
 interface InventoryManagementProps {
   currentUser: User;
+  // Added onUpdate prop to fix TypeScript error in App.tsx
+  onUpdate?: () => void;
 }
 
-export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser }) => {
+export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, onUpdate }) => {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>(INITIAL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,6 +25,8 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ curren
   const save = (updated: InventoryItem[]) => {
     setItems(updated);
     localStorage.setItem('twosome_inventory', JSON.stringify(updated));
+    // Trigger cloud sync if provided
+    onUpdate?.();
   };
 
   const updateCount = (id: string, delta: number) => {
@@ -76,7 +80,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ curren
 
       {isAdding && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 z-[70]">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl">
+          <div className="bg-white rounded-[2.5rem] w-full max-sm p-8 shadow-2xl">
             <h3 className="text-2xl font-black mb-6 tracking-tight">재고 등록</h3>
             <div className="space-y-5">
               <select className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})}>

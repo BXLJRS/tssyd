@@ -6,9 +6,11 @@ import { Megaphone, Pin, Plus, Trash2 } from 'lucide-react';
 
 interface NoticeBoardProps {
   currentUser: User;
+  // Added onUpdate prop to fix TypeScript error in App.tsx
+  onUpdate?: () => void;
 }
 
-export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser }) => {
+export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, onUpdate }) => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newNotice, setNewNotice] = useState({ title: '', content: '', isPinned: false });
@@ -21,6 +23,8 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser }) => {
   const saveNotices = (updated: Notice[]) => {
     setNotices(updated);
     localStorage.setItem('twosome_notices', JSON.stringify(updated));
+    // Trigger cloud sync if provided
+    onUpdate?.();
   };
 
   const handleAddNotice = () => {

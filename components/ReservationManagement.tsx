@@ -5,9 +5,11 @@ import { Plus, Search, Calendar, Phone, User as UserIcon, Trash2, CheckCircle, C
 
 interface ReservationManagementProps {
   currentUser: User;
+  // Added onUpdate prop to fix TypeScript error in App.tsx
+  onUpdate?: () => void;
 }
 
-export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser }) => {
+export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, onUpdate }) => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +23,8 @@ export const ReservationManagement: React.FC<ReservationManagementProps> = ({ cu
   const saveReservations = (updated: Reservation[]) => {
     setReservations(updated);
     localStorage.setItem('twosome_reservations', JSON.stringify(updated));
+    // Trigger cloud sync if provided
+    onUpdate?.();
   };
 
   const handleAdd = () => {
