@@ -42,12 +42,19 @@ export interface ChecklistItem {
 }
 
 export interface DailyReport {
+  id: string;
   date: string;
   part: ShiftPart;
   items: ChecklistItem[];
   memoToOwner: string;
   isApproved: boolean;
-  submittedAt?: number;
+  submittedAt: number;
+  // 실제 근무 정보 필드 추가
+  authorNickname: string;
+  authorId: string;
+  actualStartTime?: string;
+  actualEndTime?: string;
+  hasBreak?: boolean;
 }
 
 export interface WorkSchedule {
@@ -84,7 +91,7 @@ export interface Reservation {
 export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
 
 export interface AppData {
-  users: User[]; // 사용자 명단 동기화 추가
+  users: User[];
   notices: Notice[];
   handovers: Handover[];
   inventory: InventoryItem[];

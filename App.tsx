@@ -6,13 +6,14 @@ import { NoticeBoard } from './components/NoticeBoard';
 import { HandoverBoard } from './components/HandoverBoard';
 import { ChecklistBoard } from './components/ChecklistBoard';
 import { WorkManagement } from './components/WorkManagement';
+import { AttendanceCalendar } from './components/AttendanceCalendar';
 import { InventoryManagement } from './components/InventoryManagement';
 import { ReservationManagement } from './components/ReservationManagement';
 import { OwnerAdmin } from './components/OwnerAdmin';
 import { 
   LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, 
   Calendar, Package, ShieldAlert, BookOpen, Home, Bell, 
-  Info, Cloud, CloudOff, RefreshCw, Settings, Store
+  Info, Cloud, CloudOff, RefreshCw, Settings, Store, Clock
 } from 'lucide-react';
 
 const StoreSetupPage: React.FC<{ onComplete: (id: string) => void }> = ({ onComplete }) => {
@@ -58,7 +59,6 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       return;
     }
     
-    // 로컬에서 사용자 찾기 (서버 데이터는 App에서 주기적으로 로컬로 가져옴)
     const users = JSON.parse(localStorage.getItem('twosome_users') || '[]');
     
     if (isSignUp) {
@@ -76,10 +76,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       const newUser: User = { id, passwordHash: pw, nickname, role };
       const updatedUsers = [...users, newUser];
       localStorage.setItem('twosome_users', JSON.stringify(updatedUsers));
-      
-      // 회원가입 후 즉시 클라우드에 전송 시도
       onUpdate();
-      
       alert('가입 성공! 로그인해주세요.');
       setIsSignUp(false);
     } else {
@@ -87,7 +84,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
       if (user) {
         onLogin(user);
       } else {
-        alert('아이디 또는 비밀번호가 틀렸거나, 아직 서버 동기화 전입니다. 잠시 후 다시 시도해 보세요.');
+        alert('아이디 또는 비밀번호가 틀렸거나, 아직 서버 동기화 전입니다.');
       }
     }
   };
@@ -133,7 +130,7 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
   const mainLinks = [
     { path: '/notice', label: '공지', icon: <Megaphone size={20} /> },
     { path: '/checklist', label: '업무', icon: <CheckSquare size={20} /> },
-    { path: '/reservation', label: '예약', icon: <BookOpen size={20} /> },
+    { path: '/attendance', label: '근무표', icon: <Calendar size={20} /> }, // '근무표' 메뉴를 전면으로
     { path: '/inventory', label: '재고', icon: <Package size={20} /> },
   ];
 
@@ -157,7 +154,6 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
         </div>
       </header>
 
-      {/* Mobile Bottom Tab Bar */}
       <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around items-center h-16 pb-safe z-40 px-2 shadow-lg">
         {mainLinks.map(link => (
           <Link key={link.path} to={link.path} className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === link.path ? 'text-red-600' : 'text-gray-400'}`}>
@@ -165,9 +161,9 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
             <span className="text-[10px] font-black mt-1">{link.label}</span>
           </Link>
         ))}
-        <Link to={user.role === 'OWNER' ? "/admin" : "/work"} className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/admin' || location.pathname === '/work' ? 'text-red-600' : 'text-gray-400'}`}>
-          {user.role === 'OWNER' ? <ShieldAlert size={22} /> : <Calendar size={22} />}
-          <span className="text-[10px] font-black mt-1">{user.role === 'OWNER' ? '관리' : '근무'}</span>
+        <Link to={user.role === 'OWNER' ? "/admin" : "/reservation"} className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/admin' || location.pathname === '/reservation' ? 'text-red-600' : 'text-gray-400'}`}>
+          {user.role === 'OWNER' ? <ShieldAlert size={22} /> : <BookOpen size={22} />}
+          <span className="text-[10px] font-black mt-1">{user.role === 'OWNER' ? '관리' : '예약'}</span>
         </Link>
       </div>
 
@@ -179,8 +175,10 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: 'connected
               <button onClick={() => setIsOpen(false)} className="p-2 bg-gray-100 rounded-full"><X size={20} /></button>
             </div>
             <div className="space-y-4 flex-1">
+              <Link to="/attendance" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-red-50 text-red-600"><Calendar size={20} /> 실시간 근무표</Link>
               <Link to="/handover" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><ClipboardList size={20} /> 인계인수</Link>
-              <Link to="/work" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Calendar size={20} /> 근무스케줄</Link>
+              <Link to="/reservation" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><BookOpen size={20} /> 예약관리</Link>
+              <Link to="/work" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-gray-50 text-gray-600"><Clock size={20} /> 근무 계획</Link>
               {user.role === 'OWNER' && <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-4 p-4 rounded-2xl font-black bg-black text-white"><ShieldAlert size={20} /> 점주 관리 센터</Link>}
             </div>
             <div className="mt-auto pt-6 border-t flex items-center justify-between">
@@ -207,7 +205,6 @@ const App: React.FC = () => {
     if (saved) setCurrentUser(JSON.parse(saved));
   }, []);
 
-  // 클라우드 동기화 로직 (kvdb.io)
   const syncWithCloud = useCallback(async () => {
     if (!storeId) return;
     setSyncStatus('syncing');
@@ -218,7 +215,6 @@ const App: React.FC = () => {
         cloudData = await res.json();
       }
 
-      // 로컬 데이터 수집
       const keys: (keyof AppData)[] = ['users', 'notices', 'handovers', 'inventory', 'reservations', 'schedules', 'reports', 'tasks', 'template'];
       const currentLocalData: Partial<AppData> = {};
       
@@ -226,16 +222,14 @@ const App: React.FC = () => {
         const local = JSON.parse(localStorage.getItem(`twosome_${key}`) || '[]');
         const cloud = cloudData?.[key] || [];
         
-        // 데이터 병합: ID 기반 중복 제거 (서버 데이터를 우선하되 로컬 새 데이터 추가)
         const merged = [...cloud, ...local].filter((v, i, a) => 
-          a.findIndex(t => (t.id === v.id || (key === 'reports' && t.date === v.date && t.part === v.part))) === i
+          a.findIndex(t => t.id === v.id) === i
         );
         
         localStorage.setItem(`twosome_${key}`, JSON.stringify(merged));
         currentLocalData[key] = merged as any;
       });
 
-      // 클라우드에 최종 데이터 업로드
       await fetch(`https://kvdb.io/ANvV448oU6Q4H6H3N7j2y2/${storeId}`, {
         method: 'POST',
         body: JSON.stringify(currentLocalData),
@@ -251,7 +245,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (storeId) {
       syncWithCloud();
-      const interval = setInterval(syncWithCloud, 10000); // 10초마다 자동 연동
+      const interval = setInterval(syncWithCloud, 10000);
       return () => clearInterval(interval);
     }
   }, [storeId, syncWithCloud]);
@@ -278,6 +272,7 @@ const App: React.FC = () => {
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} onUpdate={syncWithCloud} />} />
+            <Route path="/attendance" element={<AttendanceCalendar currentUser={currentUser} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />
             <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={JSON.parse(localStorage.getItem('twosome_users') || '[]')} onUpdate={syncWithCloud} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} onUpdate={syncWithCloud} />} />

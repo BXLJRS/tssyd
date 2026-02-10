@@ -3,11 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { User, ShiftPart, ChecklistItem, DailyReport } from '../types';
 import { SHIFT_LABELS } from '../constants';
 import { getTodayDateString, getDayOfWeek } from '../utils';
-import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Trash2, Coffee } from 'lucide-react';
 
 interface ChecklistBoardProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
   onUpdate?: () => void;
 }
 
@@ -19,6 +18,11 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
   const [newItemText, setNewItemText] = useState('');
   const [newItemPart, setNewItemPart] = useState<ShiftPart | 'COMMON'>('OPEN');
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // 근무 시간 입력 상태
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [hasBreak, setHasBreak] = useState(true);
 
   const today = getTodayDateString();
   const dayName = getDayOfWeek(today);
@@ -49,7 +53,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     if (currentUser.role === 'OWNER') {
       localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
     }
-    // Trigger cloud sync if provided
     onUpdate?.();
   };
 
@@ -75,7 +78,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     const updated = [...items, ...newItems];
     save(updated);
     if (currentUser.role !== 'OWNER') {
-      // 직원이 추가한 것도 템플릿에 넣으려면 (내일도 나오게 하려면)
       localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
     }
     setNewItemText('');
@@ -90,17 +92,43 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
   const submit = () => {
     const partItems = items.filter(i => i.part === activePart);
     if (partItems.length === 0) return;
+    
+    // 필수 입력 체크
+    if (!startTime || !endTime) {
+      alert('근무 시작 시간과 종료 시간을 입력해주세요.');
+      return;
+    }
+
     if (partItems.some(i => !i.isCompleted && !i.notes?.trim())) {
       alert('체크하지 못한 항목은 사유를 작성해주세요.');
       return;
     }
-    const report: DailyReport = { date: today, part: activePart, items: partItems, memoToOwner: memo, isApproved: false, submittedAt: Date.now() };
-    const reports = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
-    localStorage.setItem('twosome_pending_reports', JSON.stringify([...reports, report]));
+
+    const report: DailyReport = { 
+      id: Date.now().toString(),
+      date: today, 
+      part: activePart, 
+      items: partItems, 
+      memoToOwner: memo, 
+      isApproved: false, 
+      submittedAt: Date.now(),
+      authorId: currentUser.id,
+      authorNickname: currentUser.nickname,
+      actualStartTime: startTime,
+      actualEndTime: endTime,
+      hasBreak: hasBreak
+    };
+
+    const reports = JSON.parse(localStorage.getItem('twosome_reports') || '[]');
+    localStorage.setItem('twosome_reports', JSON.stringify([...reports, report]));
+    
+    // 호환성을 위해 pending_reports도 업데이트
+    const pendingReports = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
+    localStorage.setItem('twosome_pending_reports', JSON.stringify([...pendingReports, report]));
+
     setIsSubmitted(true);
     localStorage.setItem('twosome_is_submitted_today', 'true');
-    alert('승인 요청이 완료되었습니다.');
-    // Trigger cloud sync if provided
+    alert('근무 기록 및 보고가 완료되었습니다.');
     onUpdate?.();
   };
 
@@ -114,7 +142,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
         <button onClick={() => setIsAdding(true)} className="p-3 bg-red-600 text-white rounded-2xl shadow-lg active:scale-95 transition-transform"><Plus size={24}/></button>
       </div>
 
-      {/* 가로 스크롤 파트 선택 */}
       <div className="flex gap-2 overflow-x-auto scrollbar-hide px-2 py-1">
         {(['OPEN', 'MIDDLE', 'CLOSE21', 'CLOSE22'] as ShiftPart[]).map(p => (
           <button key={p} onClick={() => setActivePart(p)}
@@ -151,11 +178,41 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
             <div className="p-16 text-center text-gray-400 font-bold">등록된 업무가 없습니다.</div>
           )}
         </div>
+
+        {/* 근무 시간 정보 입력 섹션 */}
+        <div className="p-6 bg-red-50/30 border-t border-red-100 space-y-4">
+          <h4 className="text-sm font-black text-red-600 flex items-center gap-2">
+            <Clock size={16} /> 실제 근무 정보 입력 (필수)
+          </h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-gray-400 ml-1">출근 시간</label>
+              <input type="time" className="w-full p-3 bg-white border border-gray-100 rounded-xl font-bold" value={startTime} onChange={e => setStartTime(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-gray-400 ml-1">퇴근 시간</label>
+              <input type="time" className="w-full p-3 bg-white border border-gray-100 rounded-xl font-bold" value={endTime} onChange={e => setEndTime(e.target.value)} />
+            </div>
+          </div>
+          <button 
+            onClick={() => setHasBreak(!hasBreak)}
+            className={`w-full p-3 rounded-xl flex items-center justify-between border transition-all ${hasBreak ? 'bg-white border-red-200 text-red-600' : 'bg-white border-gray-100 text-gray-400'}`}
+          >
+            <span className="font-bold text-sm">30분 휴게 여부</span>
+            {hasBreak ? <CheckCircle2 size={18} /> : <Square size={18} />}
+          </button>
+        </div>
+
         <div className="p-6 bg-gray-50 border-t space-y-4">
           <textarea placeholder="사장님께 전달할 추가 특이사항..." className="w-full p-4 rounded-2xl border border-gray-100 h-24 text-sm font-medium outline-none shadow-inner" value={memo} onChange={e => setMemo(e.target.value)} />
-          <button disabled={isSubmitted} onClick={submit} className={`w-full py-5 rounded-2xl font-black text-lg shadow-xl transition-all active:scale-95 ${isSubmitted ? 'bg-green-500 text-white' : 'bg-black text-white'}`}>
+          <button 
+            disabled={isSubmitted || !startTime || !endTime} 
+            onClick={submit} 
+            className={`w-full py-5 rounded-2xl font-black text-lg shadow-xl transition-all active:scale-95 ${isSubmitted ? 'bg-green-500 text-white' : (!startTime || !endTime ? 'bg-gray-300 text-white' : 'bg-black text-white')}`}
+          >
             {isSubmitted ? '오늘 보고 완료' : '사장님께 보고 및 승인 요청'}
           </button>
+          {(!startTime || !endTime) && !isSubmitted && <p className="text-[10px] text-center text-red-500 font-bold">근무 시간을 입력해야 보고할 수 있습니다.</p>}
         </div>
       </div>
 
