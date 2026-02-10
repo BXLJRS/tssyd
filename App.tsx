@@ -1,20 +1,18 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, DailyReport, InventoryItem, AppData, Notice, Handover, ChecklistItem, WorkSchedule, Reservation, Recipe } from './types';
+import { User, UserRole, AppData } from './types';
 import { NoticeBoard } from './components/NoticeBoard';
 import { HandoverBoard } from './components/HandoverBoard';
 import { ChecklistBoard } from './components/ChecklistBoard';
-import { WorkManagement } from './components/WorkManagement';
-import { AttendanceCalendar } from './components/AttendanceCalendar';
+import { WorkAttendanceUnified } from './components/WorkAttendanceUnified';
 import { InventoryManagement } from './components/InventoryManagement';
 import { ReservationManagement } from './components/ReservationManagement';
 import { RecipeManual } from './components/RecipeManual';
 import { OwnerAdmin } from './components/OwnerAdmin';
 import { 
   LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, 
-  Calendar, Package, ShieldAlert, BookOpen, Home, Bell, 
-  Info, Cloud, CloudOff, RefreshCw, Settings, Store, Clock, Book
+  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users
 } from 'lucide-react';
 
 const INITIAL_APP_DATA: AppData = {
@@ -56,8 +54,7 @@ const Navigation: React.FC<{
     { path: '/notice', label: '공지', icon: Megaphone },
     { path: '/handover', label: '인계', icon: ClipboardList },
     { path: '/checklist', label: '업무', icon: CheckSquare },
-    { path: '/attendance', label: '기록', icon: Calendar },
-    { path: '/work', label: '배정', icon: Clock },
+    { path: '/work-staff', label: '근무/직원', icon: Users }, // 통합된 메뉴
     { path: '/inventory', label: '재고', icon: Package },
     { path: '/reservation', label: '예약', icon: Book },
     { path: '/recipe', label: '레시피', icon: BookOpen },
@@ -251,7 +248,7 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('twosome_session', JSON.stringify(user));
-    loadLocalData(); // 로그인 성공 시 즉시 로컬 데이터(직원 명단 등)를 상태로 로드
+    loadLocalData();
   };
 
   const handleLogout = () => {
@@ -293,10 +290,9 @@ const App: React.FC = () => {
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} externalData={appData.notices} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} externalData={appData.handovers} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} externalData={appData.tasks} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/attendance" element={<AttendanceCalendar currentUser={currentUser} allUsers={appData.users} externalData={appData.reports} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/work" element={<WorkManagement currentUser={currentUser} allUsers={appData.users} externalData={appData.schedules} onUpdate={() => syncWithCloud(true)} />} />
+            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={() => syncWithCloud(true)} />} />
+            <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={() => syncWithCloud(true)} />} />
             {currentUser.role === 'OWNER' && <Route path="/admin" element={<OwnerAdmin externalReports={appData.reports} externalInventory={appData.inventory} onStoreIdUpdate={(id) => { setStoreId(id); localStorage.setItem('twosome_store_id', id); syncWithCloud(true); }} />} />}
             <Route path="*" element={<Navigate to="/notice" />} />
