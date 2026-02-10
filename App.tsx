@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { User, UserRole, AppData } from './types';
+import { User, UserRole, AppData, FixedSchedule } from './types';
 import { NoticeBoard } from './components/NoticeBoard';
 import { HandoverBoard } from './components/HandoverBoard';
 import { ChecklistBoard } from './components/ChecklistBoard';
@@ -12,7 +12,7 @@ import { RecipeManual } from './components/RecipeManual';
 import { OwnerAdmin } from './components/OwnerAdmin';
 import { 
   LogOut, Menu, X, Megaphone, ClipboardList, CheckSquare, 
-  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users
+  Package, BookOpen, Home, Cloud, CloudOff, RefreshCw, Settings, Store, Book, Users, Calendar
 } from 'lucide-react';
 
 const INITIAL_APP_DATA: AppData = {
@@ -25,7 +25,8 @@ const INITIAL_APP_DATA: AppData = {
   reports: [],
   tasks: [],
   template: [],
-  recipes: []
+  recipes: [],
+  fixedSchedules: []
 };
 
 const DATA_KEYS: Record<keyof AppData, string> = {
@@ -38,7 +39,8 @@ const DATA_KEYS: Record<keyof AppData, string> = {
   reports: 'twosome_reports',
   tasks: 'twosome_tasks',
   template: 'twosome_tasks_template',
-  recipes: 'twosome_recipes'
+  recipes: 'twosome_recipes',
+  fixedSchedules: 'twosome_fixed_schedules'
 };
 
 const Navigation: React.FC<{ 
@@ -54,7 +56,7 @@ const Navigation: React.FC<{
     { path: '/notice', label: '공지', icon: Megaphone },
     { path: '/handover', label: '인계', icon: ClipboardList },
     { path: '/checklist', label: '업무', icon: CheckSquare },
-    { path: '/work-staff', label: '근무/직원', icon: Users }, // 통합된 메뉴
+    { path: '/work-staff', label: '근무/직원', icon: Users },
     { path: '/inventory', label: '재고', icon: Package },
     { path: '/reservation', label: '예약', icon: Book },
     { path: '/recipe', label: '레시피', icon: BookOpen },
@@ -290,7 +292,7 @@ const App: React.FC = () => {
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} externalData={appData.notices} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} externalData={appData.handovers} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/checklist" element={<ChecklistBoard currentUser={currentUser} externalData={appData.tasks} onUpdate={() => syncWithCloud(true)} />} />
-            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} onUpdate={() => syncWithCloud(true)} />} />
+            <Route path="/work-staff" element={<WorkAttendanceUnified currentUser={currentUser} allUsers={appData.users} externalSchedules={appData.schedules} externalReports={appData.reports} externalFixedSchedules={appData.fixedSchedules} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} externalData={appData.inventory} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} externalData={appData.reservations} onUpdate={() => syncWithCloud(true)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} externalData={appData.recipes} onUpdate={() => syncWithCloud(true)} />} />
@@ -309,6 +311,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
   const [pw, setPw] = useState('');
   const [nickname, setNickname] = useState('');
   const [role, setRole] = useState<UserRole>('STAFF');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
 
   const handleAuth = async () => {
     if (id.length < 4 || pw.length !== 4) {
@@ -328,7 +331,7 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
         alert('이미 존재하는 아이디입니다.');
         return;
       }
-      const newUser: User = { id, passwordHash: pw, nickname, role, updatedAt: Date.now() };
+      const newUser: User = { id, passwordHash: pw, nickname, role, updatedAt: Date.now(), startDate };
       const updatedUsers = [...users, newUser];
       localStorage.setItem(DATA_KEYS.users, JSON.stringify(updatedUsers));
       onUpdate();
@@ -354,6 +357,10 @@ const LoginPage: React.FC<{ onLogin: (user: User) => void, onUpdate: () => void 
           {isSignUp && (
             <div className="space-y-4">
               <input type="text" placeholder="이름" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={nickname} onChange={e => setNickname(e.target.value)} />
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 ml-1 uppercase">실제 근무 시작일</label>
+                <input type="date" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={startDate} onChange={e => setStartDate(e.target.value)} />
+              </div>
               <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl">
                 <button onClick={() => setRole('STAFF')} className={`flex-1 py-3 rounded-xl font-black ${role === 'STAFF' ? 'bg-white text-black shadow-sm' : 'text-gray-400'}`}>직원</button>
                 <button onClick={() => setRole('OWNER')} className={`flex-1 py-3 rounded-xl font-black ${role === 'OWNER' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400'}`}>점주</button>

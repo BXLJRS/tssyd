@@ -6,7 +6,18 @@ export interface User {
   nickname: string;
   role: UserRole;
   passwordHash: string;
-  updatedAt?: number; // 병합을 위한 시간 기록 추가
+  updatedAt?: number;
+  startDate?: string; // 추가: 근무 시작일
+}
+
+export interface FixedSchedule {
+  id: string;
+  day: string; // '월', '화' ...
+  userId: string;
+  userName: string;
+  startTime: string;
+  endTime: string;
+  updatedAt: number;
 }
 
 export interface Notice {
@@ -82,6 +93,9 @@ export interface InventoryItem {
   updatedAt: number;
 }
 
+// Added missing InventoryCategory type for InventoryManagement.tsx
+export type InventoryCategory = string;
+
 export interface Reservation {
   id: string;
   customerName: string;
@@ -95,6 +109,7 @@ export interface Reservation {
   updatedAt: number;
 }
 
+// Added missing RecipeDetail and RecipeTempOption types for RecipeManual.tsx
 export interface RecipeDetail {
   content: string;
 }
@@ -117,8 +132,6 @@ export interface Recipe {
   updatedAt: number;
 }
 
-export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
-
 export interface AppData {
   users: User[];
   notices: Notice[];
@@ -130,4 +143,5 @@ export interface AppData {
   tasks: ChecklistItem[];
   template: ChecklistItem[];
   recipes: Recipe[];
+  fixedSchedules: FixedSchedule[]; // 추가: 고정 근무표
 }
