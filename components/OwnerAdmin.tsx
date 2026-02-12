@@ -2,24 +2,26 @@
 import React, { useState, useEffect } from 'react';
 import { DailyReport, InventoryItem } from '../types';
 import { SHIFT_LABELS } from '../constants';
-import { CheckSquare, Package, AlertCircle, ShieldCheck, Cloud, HelpCircle, Check, X } from 'lucide-react';
+import { CheckSquare, Package, AlertCircle, ArrowRight, ShieldCheck, Clock, MessageCircle, Cloud, HelpCircle } from 'lucide-react';
 
 interface OwnerAdminProps {
-  externalReports?: DailyReport[];
-  externalInventory?: InventoryItem[];
   onStoreIdUpdate: (id: string) => void;
 }
 
-export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ externalReports = [], externalInventory = [], onStoreIdUpdate }) => {
+export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ onStoreIdUpdate }) => {
   const [pendingReports, setPendingReports] = useState<DailyReport[]>([]);
   const [inventoryAlerts, setInventoryAlerts] = useState<InventoryItem[]>([]);
   const [tempStoreId, setTempStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
 
-  // 외부 데이터(Prop)가 변경될 때마다 관리자 대시보드 상태 업데이트
   useEffect(() => {
-    setPendingReports(externalReports.filter(r => !r.isApproved));
-    setInventoryAlerts(externalInventory.filter(i => i.alertEnabled && i.count <= 2));
-  }, [externalReports, externalInventory]);
+    const loadAdminData = () => {
+      const reports = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
+      setPendingReports(reports.filter((r: DailyReport) => !r.isApproved));
+      const inventory = JSON.parse(localStorage.getItem('twosome_inventory') || '[]');
+      setInventoryAlerts(inventory.filter((i: InventoryItem) => i.alertEnabled && i.count <= 2));
+    };
+    loadAdminData();
+  }, []);
 
   const handleStoreIdSave = () => {
     if (!tempStoreId.trim()) {
@@ -32,16 +34,16 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ externalReports = [], ex
     }
   };
 
-  const handleApprove = (id: string) => {
-    const updated = externalReports.map(r => r.id === id ? { ...r, isApproved: true, updatedAt: Date.now() } : r);
-    localStorage.setItem('twosome_reports', JSON.stringify(updated));
-    // App.tsx의 syncWithCloud가 8초 뒤에 작동하거나, 다른 컴포넌트 방문 시 트리거됩니다.
-    alert('근무 보고가 승인되었습니다.');
-    window.location.reload(); // 즉시 반영을 위한 강제 리로드 (또는 onUpdate prop 추가 가능)
+  const handleApprove = (date: string, part: string) => {
+    const all = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
+    const updated = all.map((r: DailyReport) => (r.date === date && r.part === part) ? { ...r, isApproved: true } : r);
+    localStorage.setItem('twosome_pending_reports', JSON.stringify(updated));
+    setPendingReports(updated.filter((r: DailyReport) => !r.isApproved));
   };
 
   return (
     <div className="space-y-8 pb-10">
+      {/* 클라우드 동기화 설정 섹션 */}
       <section className="bg-black text-white p-8 rounded-[2.5rem] shadow-2xl space-y-6">
         <div className="flex items-center gap-3">
           <Cloud className="text-red-500" size={28} />
@@ -60,7 +62,7 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ externalReports = [], ex
         </div>
         <div className="flex items-start gap-2 text-[11px] text-gray-500">
           <HelpCircle size={14} className="mt-0.5 shrink-0" />
-          <span>코드를 설정하면 8초마다 자동으로 데이터를 주고받습니다. 점주님 두 분과 직원들 모두 같은 코드를 입력해야 합니다.</span>
+          <span>코드를 설정하면 10초마다 자동으로 데이터를 주고받습니다. 점주님 두 분과 직원들 모두 같은 코드를 입력해야 합니다.</span>
         </div>
       </section>
 
@@ -88,13 +90,13 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ externalReports = [], ex
           </h3>
           <div className="space-y-4">
             {pendingReports.map(report => (
-              <div key={report.id} className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
+              <div key={`${report.date}-${report.part}`} className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="text-gray-400 text-[10px] font-bold mb-1">{report.date} 파트 보고 ({report.authorNickname})</div>
+                    <div className="text-gray-400 text-[10px] font-bold mb-1">{report.date} 파트 보고</div>
                     <h4 className="text-lg font-black text-gray-900">{SHIFT_LABELS[report.part]}</h4>
                   </div>
-                  <button onClick={() => handleApprove(report.id)} className="bg-black text-white px-4 py-2 rounded-xl text-xs font-black">승인하기</button>
+                  <button onClick={() => handleApprove(report.date, report.part)} className="bg-black text-white px-4 py-2 rounded-xl text-xs font-black">승인</button>
                 </div>
                 {report.memoToOwner && <div className="bg-blue-50 p-3 rounded-xl text-xs font-bold text-blue-800 italic">"{report.memoToOwner}"</div>}
               </div>
@@ -119,7 +121,6 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ externalReports = [], ex
                 </div>
               </div>
             ))}
-            {inventoryAlerts.length === 0 && <div className="text-center py-12 text-gray-300 font-bold">부족한 재고가 없습니다.</div>}
           </div>
         </section>
       </div>

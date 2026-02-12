@@ -7,14 +7,11 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, User as UserIcon, 
 interface AttendanceCalendarProps {
   currentUser: User;
   allUsers: User[];
-  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
-  externalData?: DailyReport[];
   onUpdate?: () => void;
 }
 
-export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentUser, allUsers, externalData = [], onUpdate }) => {
-  // Initialized state with externalData for cloud synchronization
-  const [reports, setReports] = useState<DailyReport[]>(externalData);
+export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentUser, allUsers, onUpdate }) => {
+  const [reports, setReports] = useState<DailyReport[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
   
   // 수동 입력 모달 상태
@@ -27,17 +24,10 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
     hasBreak: true
   });
 
-  // Synchronize local state when external data changes (e.g., after cloud sync)
-  useEffect(() => {
-    if (externalData && externalData.length > 0) {
-      setReports(externalData);
-    }
-  }, [externalData]);
-
   useEffect(() => {
     const saved = localStorage.getItem('twosome_reports');
-    if (saved && (!externalData || externalData.length === 0)) setReports(JSON.parse(saved));
-  }, [externalData]);
+    if (saved) setReports(JSON.parse(saved));
+  }, []);
 
   const saveReports = (updated: DailyReport[]) => {
     setReports(updated);
@@ -79,7 +69,6 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     
-    // updatedAt added to satisfy DailyReport interface requirements
     const newReport: DailyReport = {
       id: `manual-${Date.now()}`,
       date: dateStr,
@@ -92,8 +81,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
       authorNickname: targetUser.nickname,
       actualStartTime: manualEntry.startTime,
       actualEndTime: manualEntry.endTime,
-      hasBreak: manualEntry.hasBreak,
-      updatedAt: Date.now()
+      hasBreak: manualEntry.hasBreak
     };
 
     saveReports([...reports, newReport]);

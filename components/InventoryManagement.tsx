@@ -6,33 +6,35 @@ import { Package, Plus, Minus, Search, Bell, BellOff, Trash2, ChevronRight, Tag 
 
 interface InventoryManagementProps {
   currentUser: User;
-  externalData?: InventoryItem[];
+  // Added onUpdate prop to fix TypeScript error in App.tsx
   onUpdate?: () => void;
 }
 
-export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, externalData = [], onUpdate }) => {
-  const [items, setItems] = useState<InventoryItem[]>(externalData);
+export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, onUpdate }) => {
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>(INITIAL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', category: INITIAL_CATEGORIES[0], count: 0 });
 
   useEffect(() => {
-    setItems(externalData);
-  }, [externalData]);
+    const saved = localStorage.getItem('twosome_inventory');
+    if (saved) setItems(JSON.parse(saved));
+  }, []);
 
   const save = (updated: InventoryItem[]) => {
     setItems(updated);
     localStorage.setItem('twosome_inventory', JSON.stringify(updated));
+    // Trigger cloud sync if provided
     onUpdate?.();
   };
 
   const updateCount = (id: string, delta: number) => {
-    save(items.map(i => i.id === id ? { ...i, count: Math.max(0, i.count + delta), updatedAt: Date.now() } : i));
+    save(items.map(i => i.id === id ? { ...i, count: Math.max(0, i.count + delta) } : i));
   };
 
   const toggleAlert = (id: string) => {
-    save(items.map(i => i.id === id ? { ...i, alertEnabled: !i.alertEnabled, updatedAt: Date.now() } : i));
+    save(items.map(i => i.id === id ? { ...i, alertEnabled: !i.alertEnabled } : i));
   };
 
   const deleteItem = (id: string) => {
@@ -89,8 +91,7 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ curren
                 <button onClick={() => setIsAdding(false)} className="flex-1 py-4 font-black text-gray-400">취소</button>
                 <button onClick={() => {
                   if(!newItem.name) return;
-                  // updatedAt added to satisfy InventoryItem interface requirements
-                  save([...items, { id: Date.now().toString(), ...newItem, alertEnabled: false, updatedAt: Date.now() }]);
+                  save([...items, { id: Date.now().toString(), ...newItem, alertEnabled: false }]);
                   setIsAdding(false);
                   setNewItem({ name: '', category: categories[0], count: 0 });
                 }} className="flex-1 py-4 bg-black text-white font-black rounded-2xl shadow-xl">등록</button>

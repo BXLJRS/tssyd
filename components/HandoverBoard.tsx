@@ -6,14 +6,12 @@ import { ClipboardList, Plus, Trash2, Bold, Palette } from 'lucide-react';
 
 interface HandoverBoardProps {
   currentUser: User;
-  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
-  externalData?: Handover[];
+  // Added onUpdate prop to fix TypeScript error in App.tsx
   onUpdate?: () => void;
 }
 
-export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, externalData = [], onUpdate }) => {
-  // Initialized state with externalData for cloud synchronization
-  const [handovers, setHandovers] = useState<Handover[]>(externalData);
+export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpdate }) => {
+  const [handovers, setHandovers] = useState<Handover[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({ 
     title: '', 
@@ -22,17 +20,10 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, exter
     isBold: false 
   });
 
-  // Synchronize local state when external data changes (e.g., after cloud sync)
-  useEffect(() => {
-    if (externalData && externalData.length > 0) {
-      setHandovers(externalData);
-    }
-  }, [externalData]);
-
   useEffect(() => {
     const saved = localStorage.getItem('twosome_handovers');
-    if (saved && (!externalData || externalData.length === 0)) setHandovers(JSON.parse(saved));
-  }, [externalData]);
+    if (saved) setHandovers(JSON.parse(saved));
+  }, []);
 
   const saveHandovers = (updated: Handover[]) => {
     setHandovers(updated);
@@ -43,7 +34,6 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, exter
 
   const handleAdd = () => {
     if (!formData.title || !formData.content) return;
-    // updatedAt added to satisfy Handover interface requirements
     const item: Handover = {
       id: Date.now().toString(),
       title: formData.title,
@@ -51,7 +41,6 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, exter
       authorId: currentUser.id,
       authorNickname: currentUser.nickname,
       createdAt: Date.now(),
-      updatedAt: Date.now(),
       styles: { color: formData.color, isBold: formData.isBold }
     };
     saveHandovers([item, ...handovers]);

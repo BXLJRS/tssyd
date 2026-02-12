@@ -6,18 +6,6 @@ export interface User {
   nickname: string;
   role: UserRole;
   passwordHash: string;
-  updatedAt?: number;
-  startDate?: string; // 추가: 근무 시작일
-}
-
-export interface FixedSchedule {
-  id: string;
-  day: string; // '월', '화' ...
-  userId: string;
-  userName: string;
-  startTime: string;
-  endTime: string;
-  updatedAt: number;
 }
 
 export interface Notice {
@@ -28,7 +16,6 @@ export interface Notice {
   authorNickname: string;
   isPinned: boolean;
   createdAt: number;
-  updatedAt: number;
 }
 
 export interface Handover {
@@ -38,7 +25,6 @@ export interface Handover {
   authorId: string;
   authorNickname: string;
   createdAt: number;
-  updatedAt: number;
   styles?: {
     color?: string;
     isBold?: boolean;
@@ -53,7 +39,6 @@ export interface ChecklistItem {
   content: string;
   isCompleted: boolean;
   notes?: string;
-  updatedAt: number;
 }
 
 export interface DailyReport {
@@ -69,7 +54,6 @@ export interface DailyReport {
   actualStartTime?: string;
   actualEndTime?: string;
   hasBreak?: boolean;
-  updatedAt: number;
 }
 
 export interface WorkSchedule {
@@ -81,7 +65,6 @@ export interface WorkSchedule {
   endTime: string;
   hasBreak: boolean;
   notes?: string;
-  updatedAt: number;
 }
 
 export interface InventoryItem {
@@ -90,11 +73,7 @@ export interface InventoryItem {
   name: string;
   count: number;
   alertEnabled: boolean;
-  updatedAt: number;
 }
-
-// Added missing InventoryCategory type for InventoryManagement.tsx
-export type InventoryCategory = string;
 
 export interface Reservation {
   id: string;
@@ -106,18 +85,17 @@ export interface Reservation {
   notes: string;
   isCompleted: boolean;
   createdAt: number;
-  updatedAt: number;
 }
 
-// Added missing RecipeDetail and RecipeTempOption types for RecipeManual.tsx
-export interface RecipeDetail {
+// 레시피 관련 타입
+export interface RecipeSizeDetail {
   content: string;
 }
 
 export interface RecipeTempOption {
-  regular: RecipeDetail;
-  large: RecipeDetail;
-  max: RecipeDetail;
+  regular: RecipeSizeDetail;
+  large: RecipeSizeDetail;
+  max: RecipeSizeDetail;
 }
 
 export interface Recipe {
@@ -129,8 +107,9 @@ export interface Recipe {
   ice?: RecipeTempOption;
   hot?: RecipeTempOption;
   lastUpdated: number;
-  updatedAt: number;
 }
+
+export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
 
 export interface AppData {
   users: User[];
@@ -143,5 +122,4 @@ export interface AppData {
   tasks: ChecklistItem[];
   template: ChecklistItem[];
   recipes: Recipe[];
-  fixedSchedules: FixedSchedule[]; // 추가: 고정 근무표
 }

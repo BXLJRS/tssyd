@@ -6,30 +6,30 @@ import { Megaphone, Pin, Plus, Trash2 } from 'lucide-react';
 
 interface NoticeBoardProps {
   currentUser: User;
-  externalData?: Notice[];
+  // Added onUpdate prop to fix TypeScript error in App.tsx
   onUpdate?: () => void;
 }
 
-export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, externalData = [], onUpdate }) => {
-  const [notices, setNotices] = useState<Notice[]>(externalData);
+export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, onUpdate }) => {
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newNotice, setNewNotice] = useState({ title: '', content: '', isPinned: false });
 
-  // 외부 데이터 동기화
   useEffect(() => {
-    setNotices(externalData);
-  }, [externalData]);
+    const saved = localStorage.getItem('twosome_notices');
+    if (saved) setNotices(JSON.parse(saved));
+  }, []);
 
   const saveNotices = (updated: Notice[]) => {
     setNotices(updated);
     localStorage.setItem('twosome_notices', JSON.stringify(updated));
+    // Trigger cloud sync if provided
     onUpdate?.();
   };
 
   const handleAddNotice = () => {
     if (!newNotice.title || !newNotice.content) return;
     
-    // updatedAt added to satisfy Notice interface requirements
     const notice: Notice = {
       id: Date.now().toString(),
       title: newNotice.title,
@@ -37,8 +37,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, externalD
       authorId: currentUser.id,
       authorNickname: currentUser.nickname,
       isPinned: currentUser.role === 'OWNER' ? newNotice.isPinned : false,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: Date.now()
     };
 
     saveNotices([notice, ...notices]);
@@ -61,7 +60,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, externalD
   return (
     <div className="space-y-6 max-w-4xl mx-auto p-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
           <Megaphone className="text-red-600" /> 공지사항
         </h2>
         <button 

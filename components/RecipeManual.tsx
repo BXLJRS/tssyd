@@ -5,7 +5,6 @@ import { Search, Plus, X, ChevronRight, Edit3, Trash2, BookOpen, Snowflake, Flam
 
 interface RecipeManualProps {
   currentUser: User;
-  externalData?: Recipe[];
   onUpdate?: () => void;
 }
 
@@ -16,8 +15,8 @@ const DEFAULT_TEMP: RecipeTempOption = {
   max: { ...DEFAULT_DETAIL }
 };
 
-export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externalData = [], onUpdate }) => {
-  const [recipes, setRecipes] = useState<Recipe[]>(externalData);
+export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, onUpdate }) => {
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeTemp, setActiveTemp] = useState<'ICE' | 'HOT' | null>(null);
@@ -27,13 +26,9 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
   const [editData, setEditData] = useState<Partial<Recipe>>({});
 
   useEffect(() => {
-    setRecipes(externalData);
-    // 선택된 레시피가 있는 경우 실시간 업데이트된 정보로 갱신
-    if (selectedRecipe) {
-      const updated = externalData.find(r => r.id === selectedRecipe.id);
-      if (updated) setSelectedRecipe(updated);
-    }
-  }, [externalData, selectedRecipe]);
+    const saved = localStorage.getItem('twosome_recipes');
+    if (saved) setRecipes(JSON.parse(saved));
+  }, []);
 
   const saveRecipes = (updated: Recipe[]) => {
     setRecipes(updated);
@@ -112,6 +107,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
             )}
           </div>
 
+          {/* 온도 선택 */}
           <div className="grid grid-cols-2 gap-4">
             {selectedRecipe.hasIce && (
               <button 
@@ -133,6 +129,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
             )}
           </div>
 
+          {/* 사이즈 선택 (온도가 선택되었을 때만) */}
           {activeTemp && (
             <div className="space-y-6 animate-in fade-in duration-500">
               <div className="flex gap-2 p-1.5 bg-gray-100 rounded-[1.5rem]">
@@ -147,6 +144,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
                 ))}
               </div>
 
+              {/* 레시피 출력 */}
               <div className="bg-gray-50 rounded-3xl p-8 border border-gray-100 min-h-[200px]">
                 <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Info size={14}/> {activeTemp} {activeSize?.toUpperCase()} 레시피 내용
@@ -216,6 +214,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
         )}
       </div>
 
+      {/* 편집 모달 */}
       {isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 z-[80] overflow-y-auto">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 shadow-2xl my-auto animate-in zoom-in duration-300">
@@ -256,6 +255,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
                 </button>
               </div>
 
+              {/* ICE 레시피 입력 */}
               {editData.hasIce && (
                 <div className="space-y-4 p-6 bg-blue-50/30 rounded-3xl border border-blue-100">
                   <h4 className="text-sm font-black text-blue-600 flex items-center gap-2"><Snowflake size={16}/> ICE 레시피 구성</h4>
@@ -279,6 +279,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, externa
                 </div>
               )}
 
+              {/* HOT 레시피 입력 */}
               {editData.hasHot && (
                 <div className="space-y-4 p-6 bg-orange-50/30 rounded-3xl border border-orange-100">
                   <h4 className="text-sm font-black text-orange-600 flex items-center gap-2"><Flame size={16}/> HOT 레시피 구성</h4>

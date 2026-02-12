@@ -5,29 +5,20 @@ import { Plus, Search, Calendar, Phone, User as UserIcon, Trash2, CheckCircle, C
 
 interface ReservationManagementProps {
   currentUser: User;
-  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
-  externalData?: Reservation[];
+  // Added onUpdate prop to fix TypeScript error in App.tsx
   onUpdate?: () => void;
 }
 
-export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, externalData = [], onUpdate }) => {
-  // Initialized state with externalData for cloud synchronization
-  const [reservations, setReservations] = useState<Reservation[]>(externalData);
+export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, onUpdate }) => {
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({ customerName: '', phoneNumber: '', date: new Date().toISOString().split('T')[0], time: '12:00', item: '', notes: '' });
 
-  // Synchronize local state when external data changes (e.g., after cloud sync)
-  useEffect(() => {
-    if (externalData && externalData.length > 0) {
-      setReservations(externalData);
-    }
-  }, [externalData]);
-
   useEffect(() => {
     const saved = localStorage.getItem('twosome_reservations');
-    if (saved && (!externalData || externalData.length === 0)) setReservations(JSON.parse(saved));
-  }, [externalData]);
+    if (saved) setReservations(JSON.parse(saved));
+  }, []);
 
   const saveReservations = (updated: Reservation[]) => {
     setReservations(updated);
@@ -41,21 +32,14 @@ export const ReservationManagement: React.FC<ReservationManagementProps> = ({ cu
       alert('필수 정보를 입력해 주세요.');
       return;
     }
-    // updatedAt added to satisfy Reservation interface requirements
-    const newRes: Reservation = { 
-      id: Date.now().toString(), 
-      ...formData, 
-      isCompleted: false, 
-      createdAt: Date.now(), 
-      updatedAt: Date.now() 
-    };
+    const newRes: Reservation = { id: Date.now().toString(), ...formData, isCompleted: false, createdAt: Date.now() };
     saveReservations([newRes, ...reservations]);
     setIsAdding(false);
     setFormData({ customerName: '', phoneNumber: '', date: new Date().toISOString().split('T')[0], time: '12:00', item: '', notes: '' });
   };
 
   const toggleComplete = (id: string) => {
-    saveReservations(reservations.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted, updatedAt: Date.now() } : r));
+    saveReservations(reservations.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted } : r));
   };
 
   const deleteRes = (id: string) => {

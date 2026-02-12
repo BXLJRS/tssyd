@@ -7,14 +7,12 @@ import { Calendar as CalendarIcon, Clock, Star, Users, Plus, X, AlertCircle, Che
 interface WorkManagementProps {
   currentUser: User;
   allUsers: User[];
-  // Added externalData to fix TypeScript error in App.tsx and enable cloud sync
-  externalData?: WorkSchedule[];
+  // Added onUpdate prop to fix TypeScript error in App.tsx
   onUpdate?: () => void;
 }
 
-export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, allUsers, externalData = [], onUpdate }) => {
-  // Initialized state with externalData for cloud synchronization
-  const [schedules, setSchedules] = useState<WorkSchedule[]>(externalData);
+export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, allUsers, onUpdate }) => {
+  const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [isEditing, setIsEditing] = useState(false);
   const [viewDate, setViewDate] = useState(new Date()); 
@@ -25,17 +23,10 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
     notes: ''
   });
 
-  // Synchronize local state when external data changes (e.g., after cloud sync)
-  useEffect(() => {
-    if (externalData && externalData.length > 0) {
-      setSchedules(externalData);
-    }
-  }, [externalData]);
-
   useEffect(() => {
     const saved = localStorage.getItem('twosome_schedules');
-    if (saved && (!externalData || externalData.length === 0)) setSchedules(JSON.parse(saved));
-  }, [externalData]);
+    if (saved) setSchedules(JSON.parse(saved));
+  }, []);
 
   const saveSchedules = (updated: WorkSchedule[]) => {
     setSchedules(updated);
@@ -52,7 +43,6 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
     const user = allUsers.find(u => u.id === currentEdit.userId);
     if (!user) return;
 
-    // updatedAt added to satisfy WorkSchedule interface requirements
     const newSchedule: WorkSchedule = {
       id: Date.now().toString(),
       userId: user.id,
@@ -61,8 +51,7 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
       startTime: currentEdit.startTime,
       endTime: currentEdit.endTime,
       hasBreak: !!currentEdit.hasBreak,
-      notes: currentEdit.notes || '',
-      updatedAt: Date.now()
+      notes: currentEdit.notes
     };
     saveSchedules([...schedules, newSchedule]);
     setIsEditing(false);
@@ -213,7 +202,7 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
 
       {isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-[2.5rem] w-full max-md p-10 shadow-2xl animate-fade-in-up">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-fade-in-up">
             <h3 className="text-2xl font-black text-gray-900 mb-8 tracking-tight">근무자 배정</h3>
             <div className="space-y-6">
               <div className="space-y-2">
