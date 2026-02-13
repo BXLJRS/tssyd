@@ -2,33 +2,21 @@
 import React, { useState } from 'react';
 import { AppData, DailyReport, InventoryItem } from '../types';
 import { SHIFT_LABELS } from '../constants';
-import { CheckSquare, Package, AlertCircle, ShieldCheck, Cloud, Database, Copy, Check } from 'lucide-react';
+import { CheckSquare, Package, AlertCircle, ShieldCheck, Cloud, Database, Copy, Check, UploadCloud } from 'lucide-react';
 
 interface OwnerAdminProps {
   appData: AppData;
   onUpdate: (key: keyof AppData, updated: any[]) => void;
   onStoreIdUpdate: (id: string) => void;
+  onForceUpload: () => void; // 강제 업로드 함수 추가
 }
 
-export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onStoreIdUpdate }) => {
+export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onStoreIdUpdate, onForceUpload }) => {
   const [tempStoreId, setTempStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
   const [copied, setCopied] = useState(false);
 
   const pendingReports = appData.reports.filter(r => !r.isApproved);
   const inventoryAlerts = appData.inventory.filter(i => i.alertEnabled && i.count <= 2);
-
-  const handleExport = () => {
-    try {
-      // 한글 깨짐 방지 및 데이터 유실 방지 인코딩
-      const code = btoa(unescape(encodeURIComponent(JSON.stringify(appData))));
-      navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      alert('비상 코드가 복사되었습니다!\n엣지 브라우저 로그인 화면의 [비상용 코드 연동] 버튼에 붙여넣으세요.');
-    } catch (e) {
-      alert('코드 생성 실패. 데이터가 너무 큽니다.');
-    }
-  };
 
   const handleStoreIdSave = () => {
     if (!tempStoreId.trim()) return;
@@ -44,18 +32,17 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onSto
 
   return (
     <div className="space-y-8 pb-10">
-      <section className="bg-black text-white p-8 rounded-[2.5rem] shadow-2xl space-y-6">
+      <section className="bg-red-600 text-white p-8 rounded-[2.5rem] shadow-2xl space-y-6">
         <div className="flex items-center gap-3">
-          <Database className="text-red-500" size={28} />
-          <h3 className="text-xl font-black">연동 문제 즉시 해결 코드</h3>
+          <UploadCloud size={28} />
+          <h3 className="text-xl font-black">마스터 데이터 강제 연동</h3>
         </div>
-        <p className="text-xs font-bold text-gray-400">다른 기기(엣지 등)에서 "연결 안됨"이 뜨나요? 아래 버튼을 눌러 코드를 복사해 그 기기에 붙여넣으세요. 데이터가 즉시 수동으로 복사됩니다.</p>
+        <p className="text-xs font-bold text-red-100">내 기기의 데이터가 가장 최신이라면, 아래 버튼을 눌러 서버의 데이터를 내 데이터로 강제로 덮어씌웁니다. 다른 기기들의 데이터 연동이 꼬였을 때 최후의 수단으로 사용하세요.</p>
         <button 
-          onClick={handleExport}
-          className="w-full flex items-center justify-center gap-2 bg-white text-black py-4 rounded-2xl font-black hover:bg-gray-100 active:scale-95 shadow-xl transition-all"
+          onClick={() => { if(confirm('내 기기의 데이터로 서버를 덮어씌울까요?\n(다른 기기의 데이터가 사라질 수 있습니다)')) onForceUpload(); }}
+          className="w-full flex items-center justify-center gap-2 bg-white text-red-600 py-4 rounded-2xl font-black hover:bg-gray-100 active:scale-95 shadow-xl transition-all"
         >
-          {copied ? <Check className="text-green-600"/> : <Copy size={18}/>}
-          {copied ? '복사 완료!' : '현재 모든 데이터 코드 복사하기'}
+          서버로 데이터 강제 업로드 (Master Push)
         </button>
       </section>
 
