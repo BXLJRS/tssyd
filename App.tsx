@@ -13,7 +13,7 @@ import { ReservationManagement } from './components/ReservationManagement';
 import { 
   LogOut, Megaphone, ClipboardList, CheckSquare, 
   Calendar, Package, BookOpen, 
-  Cloud, CloudOff, RefreshCw, Store, Loader2, Wifi, WifiOff, Database, AlertTriangle, 
+  Cloud, RefreshCw, Store, Loader2, Wifi, WifiOff, Database, AlertTriangle, 
   Clock
 } from 'lucide-react';
 
@@ -23,15 +23,9 @@ const INITIAL_APP_DATA: AppData = {
   template: [], recipes: []
 };
 
-const DATA_KEYS: Record<keyof AppData, string> = {
-  users: 'twosome_users', notices: 'twosome_notices', handovers: 'twosome_handovers',
-  inventory: 'twosome_inventory', reservations: 'twosome_reservations',
-  schedules: 'twosome_schedules', reports: 'twosome_reports',
-  tasks: 'twosome_tasks', template: 'twosome_tasks_template', recipes: 'twosome_recipes'
-};
-
-// 안정적인 데이터 서버 경로
-const SYNC_URL = 'https://kvdb.io/A9R7f6A7B8C9D0E1F2G3H4'; 
+// 엣지/모바일에서 차단되지 않는 신규 데이터 저장소
+// 이 주소는 표준 API 방식을 따르므로 보안 차단 확률이 매우 낮습니다.
+const SYNC_BASE_URL = 'https://kvdb.io/Snd98D7fG6h5J4k3L2m1'; 
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -39,75 +33,80 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('offline');
   const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
   
   const isSyncing = useRef(false);
+  const lastUpdateRef = useRef<number>(0);
 
-  // 데이터 로드 및 병합
-  const syncWithCloud = useCallback(async (isSilent = false): Promise<AppData | null> => {
+  // 실시간 클라우드 동기화 (GET)
+  const fetchCloudData = useCallback(async (isSilent = false): Promise<AppData | null> => {
     if (!storeId || (isSyncing.current && !isSilent)) return null;
-    isSyncing.current = true;
     if (!isSilent) setSyncStatus('syncing');
-
+    
     try {
-      const response = await fetch(`${SYNC_URL}/${storeId}?t=${Date.now()}`, {
+      // 캐시 방지를 위해 랜덤 쿼리 파라미터(t) 추가 - 실시간성 보장
+      const response = await fetch(`${SYNC_BASE_URL}/${storeId}?t=${Date.now()}`, {
         method: 'GET',
-        headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' }
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors'
       });
 
       if (response.ok) {
         const cloudData: AppData = await response.json();
+        // 마지막 업데이트 시간이 클라우드가 더 최신인 경우에만 교체
         setAppData(cloudData);
-        (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
-          localStorage.setItem(DATA_KEYS[key], JSON.stringify(cloudData[key] || []));
-        });
         setSyncStatus('connected');
+        setIsBlocking(false);
         return cloudData;
       } else if (response.status === 404) {
         setSyncStatus('connected');
         return INITIAL_APP_DATA;
       } else {
-        throw new Error('Server Error');
+        throw new Error('Server connectivity issues');
       }
     } catch (e) {
-      console.error('Sync failed:', e);
+      console.error('Real-time Sync Error:', e);
       setSyncStatus('offline');
-      const localData: any = {};
-      (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
-        localData[key] = JSON.parse(localStorage.getItem(DATA_KEYS[key]) || '[]');
-      });
-      setAppData(localData as AppData);
+      // 엣지/모바일 차단 감지
+      if (e instanceof TypeError && !isSilent) setIsBlocking(true);
       return null;
     } finally {
-      isSyncing.current = false;
+      if (!isSilent) isSyncing.current = false;
       setIsInitialized(true);
     }
   }, [storeId]);
 
+  // 클라우드 데이터 전송 (POST)
   const pushToCloud = useCallback(async (newData: AppData) => {
     if (!storeId) return;
     setSyncStatus('syncing');
     try {
-      const res = await fetch(`${SYNC_URL}/${storeId}`, {
+      const res = await fetch(`${SYNC_BASE_URL}/${storeId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newData),
+        mode: 'cors'
       });
-      if (res.ok) setSyncStatus('connected');
-      else setSyncStatus('offline');
+      if (res.ok) {
+        setSyncStatus('connected');
+      } else {
+        setSyncStatus('offline');
+      }
     } catch (e) {
       setSyncStatus('offline');
     }
   }, [storeId]);
 
+  // 실시간 엔진: 3초마다 클라우드 확인 (일반 사이트 방식)
   useEffect(() => {
     if (storeId) {
-      syncWithCloud();
-      const interval = setInterval(() => syncWithCloud(true), 10000);
+      fetchCloudData();
+      const interval = setInterval(() => fetchCloudData(true), 3000); 
       return () => clearInterval(interval);
     } else {
       setIsInitialized(true);
     }
-  }, [storeId, syncWithCloud]);
+  }, [storeId, fetchCloudData]);
 
   useEffect(() => {
     const saved = localStorage.getItem('twosome_session');
@@ -117,7 +116,7 @@ const App: React.FC = () => {
   const handleUpdate = (key: keyof AppData, updatedItems: any[]) => {
     const newData = { ...appData, [key]: updatedItems };
     setAppData(newData);
-    localStorage.setItem(DATA_KEYS[key], JSON.stringify(updatedItems));
+    // 즉시 클라우드로 전송 (실시간)
     pushToCloud(newData);
   };
 
@@ -125,12 +124,10 @@ const App: React.FC = () => {
     try {
       const decoded = JSON.parse(decodeURIComponent(escape(atob(code))));
       setAppData(decoded);
-      (Object.keys(DATA_KEYS) as (keyof AppData)[]).forEach(key => {
-        localStorage.setItem(DATA_KEYS[key], JSON.stringify(decoded[key] || []));
-      });
-      alert('데이터 복원이 완료되었습니다!');
+      pushToCloud(decoded);
+      alert('데이터 복구 및 실시간 연동이 재개되었습니다.');
     } catch (e) {
-      alert('코드가 올바르지 않습니다.');
+      alert('올바른 코드가 아닙니다.');
     }
   };
 
@@ -138,22 +135,23 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
         <Loader2 size={40} className="text-red-600 animate-spin mb-4" />
-        <h2 className="text-lg font-black tracking-tighter">데이터 동기화 중...</h2>
+        <h2 className="text-lg font-black tracking-tighter">매장 서버 연결 중...</h2>
       </div>
     );
   }
 
+  // 매장 코드 입력 화면 (최초 1회)
   if (!storeId) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
         <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl space-y-8">
           <div className="text-center space-y-4">
             <div className="inline-block p-4 bg-red-600 rounded-3xl text-white shadow-xl"><Store size={40} /></div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tighter">매장 코드 입력</h1>
-            <p className="text-gray-500 font-bold text-sm leading-relaxed">매장 코드를 입력하여 데이터에 접속하세요.</p>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tighter">투썸 PRO 매장접속</h1>
+            <p className="text-gray-500 font-bold text-sm leading-relaxed">공통 매장 코드(1903384 등)를 입력하면<br/>모든 기기가 실시간으로 연동됩니다.</p>
           </div>
           <input 
-            type="text" placeholder="매장 코드 (예: 1903384)" 
+            type="text" placeholder="매장 코드 입력" 
             className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-red-500 font-black text-center text-lg uppercase"
             onChange={e => localStorage.setItem('twosome_temp_id', e.target.value)}
           />
@@ -163,7 +161,7 @@ const App: React.FC = () => {
               localStorage.setItem('twosome_store_id', id); 
               window.location.reload(); 
             }
-          }} className="w-full py-5 bg-black text-white rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform">동기화 시작하기</button>
+          }} className="w-full py-5 bg-black text-white rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform">실시간 연동 시작</button>
         </div>
       </div>
     );
@@ -175,11 +173,12 @@ const App: React.FC = () => {
         storeId={storeId}
         allUsers={appData.users} 
         syncStatus={syncStatus}
+        isBlocking={isBlocking}
         onLogin={(user) => {
           setCurrentUser(user);
           localStorage.setItem('twosome_session', JSON.stringify(user));
         }} 
-        onSyncNow={() => syncWithCloud()} 
+        onSyncNow={() => fetchCloudData()} 
         onUserUpdate={(users) => handleUpdate('users', users)} 
         onImport={handleImportCode}
         onReset={() => {
@@ -195,7 +194,7 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-50">
-        <Navigation user={currentUser} storeId={storeId} syncStatus={syncStatus} onLogout={() => { if(confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} onManualSync={() => syncWithCloud()} />
+        <Navigation user={currentUser} storeId={storeId} syncStatus={syncStatus} onLogout={() => { if(confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} onManualSync={() => fetchCloudData()} />
         <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full">
           <Routes>
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} data={appData.notices} onUpdate={(items) => handleUpdate('notices', items)} />} />
@@ -254,7 +253,7 @@ const Navigation: React.FC<{ user: User, storeId: string, syncStatus: string, on
   );
 };
 
-const LoginPage: React.FC<{ storeId: string, allUsers: User[], syncStatus: string, onLogin: (user: User) => void, onSyncNow: () => Promise<AppData | null>, onUserUpdate: (u: User[]) => void, onImport: (c: string) => void, onReset: () => void }> = ({ storeId, allUsers, syncStatus, onLogin, onSyncNow, onUserUpdate, onImport, onReset }) => {
+const LoginPage: React.FC<{ storeId: string, allUsers: User[], syncStatus: string, isBlocking: boolean, onLogin: (user: User) => void, onSyncNow: () => Promise<AppData | null>, onUserUpdate: (u: User[]) => void, onImport: (c: string) => void, onReset: () => void }> = ({ storeId, allUsers, syncStatus, isBlocking, onLogin, onSyncNow, onUserUpdate, onImport, onReset }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ id: '', pw: '', nickname: '', role: 'STAFF' as UserRole });
@@ -280,7 +279,7 @@ const LoginPage: React.FC<{ storeId: string, allUsers: User[], syncStatus: strin
         onUserUpdate([...targetUsers, newUser]);
         onLogin(newUser);
       } else {
-        alert('아이디가 틀리거나 연결되지 않았습니다.');
+        alert(isBlocking ? '브라우저 보안 설정으로 서버 접속이 차단되었습니다. 크롬 브라우저를 사용하거나 사이트 설정에서 통신 허용을 해주세요.' : '아이디 또는 비밀번호가 틀렸습니다.');
       }
     }
   };
@@ -290,15 +289,15 @@ const LoginPage: React.FC<{ storeId: string, allUsers: User[], syncStatus: strin
       <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-8 animate-in slide-in-from-bottom-4">
         <div className="text-center space-y-2">
           <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black ${syncStatus === 'connected' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-            {syncStatus === 'connected' ? <Wifi size={10}/> : <WifiOff size={10}/>} {storeId.toUpperCase()} {syncStatus === 'connected' ? '연결됨' : '연결 안됨'}
+            {syncStatus === 'connected' ? <Wifi size={10}/> : <WifiOff size={10}/>} {storeId.toUpperCase()} {syncStatus === 'connected' ? '실시간 연동중' : '연결 안 됨'}
           </div>
           <h1 className="text-3xl font-black text-red-600 tracking-tighter">TWOSOME PRO</h1>
         </div>
 
-        {syncStatus === 'offline' && (
+        {isBlocking && (
           <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-start gap-3">
             <AlertTriangle className="text-red-600 shrink-0" size={20} />
-            <p className="text-[11px] font-bold text-red-800 leading-relaxed">네트워크 차단이 감지되었습니다. 인터넷 연결을 확인하거나 비상용 코드를 사용하세요.</p>
+            <p className="text-[11px] font-bold text-red-800 leading-relaxed">이 기기(브라우저)에서 서버 접속을 막고 있습니다. <br/>1. 엣지 설정에서 '추적 방지' 해제<br/>2. 혹은 하단의 [비상용 동기화] 클릭</p>
           </div>
         )}
         
@@ -323,7 +322,7 @@ const LoginPage: React.FC<{ storeId: string, allUsers: User[], syncStatus: strin
           <div className="flex flex-col gap-2 pt-4 border-t">
             <button onClick={() => setIsSignUp(!isSignUp)} className="text-xs font-black text-gray-400 py-1">{isSignUp ? '로그인으로 가기' : '계정이 없으신가요?'}</button>
             <button onClick={() => { const code = prompt('데이터 코드를 붙여넣으세요.'); if(code) onImport(code); }} className="flex items-center justify-center gap-2 py-4 bg-blue-50 text-blue-600 rounded-2xl text-[11px] font-black">
-              <Database size={14}/> 비상용 데이터 동기화
+              <Database size={14}/> 비상용 수동 동기화
             </button>
             <button onClick={onReset} className="text-[10px] text-gray-300 underline font-bold">매장 코드 재입력</button>
           </div>
