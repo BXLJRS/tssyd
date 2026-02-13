@@ -1,0 +1,5 @@
+{
+  "name": "어플만드는중",
+  "description": "A comprehensive management application for Twosome Place cafe owners and staff, featuring notices, shift handovers, checklists with automated resets, work scheduling, and inventory tracking with approval workflows.",
+  "requestFramePermissions": []
+}
