@@ -14,7 +14,7 @@ import {
   LogOut, Megaphone, ClipboardList, CheckSquare, 
   Calendar, Package, BookOpen, 
   RefreshCw, Store, Loader2, Wifi, WifiOff, Database, AlertTriangle, 
-  Clock, Activity, ShieldAlert, Info
+  Clock, Activity, ShieldAlert, CheckCircle2
 } from 'lucide-react';
 
 const INITIAL_APP_DATA: AppData = {
@@ -23,7 +23,7 @@ const INITIAL_APP_DATA: AppData = {
   template: [], recipes: []
 };
 
-// 엣지/모바일에서 차단 확률이 낮은 백업 경로 포함
+// 범용적으로 사용 가능한 무료 키-밸류 저장소 엔드포인트
 const DB_BASE = 'https://kvdb.io/Snd98D7fG6h5J4k3L2m1'; 
 
 const App: React.FC = () => {
@@ -38,25 +38,30 @@ const App: React.FC = () => {
   
   const syncLock = useRef(false);
 
-  // 초경량 통신 엔진: 브라우저 보안 검사를 최소화하기 위해 헤더를 최소한으로 유지
+  // 서버 통신 엔진 (404 예외 처리 포함)
   const syncWithServer = useCallback(async (method: 'GET' | 'POST', payload?: AppData): Promise<AppData | null> => {
     if (!storeId) return null;
     const start = Date.now();
-    const url = `${DB_BASE}/${storeId}?nocache=${Date.now()}`;
+    const url = `${DB_BASE}/${storeId}`;
     
     try {
       setSyncStatus('syncing');
-      const options: RequestInit = {
+      const response = await fetch(url, {
         method,
         mode: 'cors',
-        cache: 'no-store',
-      };
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify(payload) : undefined
+      });
 
-      if (payload) {
-        options.body = JSON.stringify(payload);
+      // 404가 뜨면 "서버는 살아있는데 데이터만 없는 것"이므로 연결 성공으로 간주
+      if (response.status === 404 && method === 'GET') {
+        console.log("New store detected, initializing...");
+        setSyncStatus('connected');
+        setLatency(Date.now() - start);
+        // 데이터가 없으므로 서버에 초기 데이터를 한 번 쏴줍니다.
+        await fetch(url, { method: 'POST', mode: 'cors', body: JSON.stringify(INITIAL_APP_DATA) });
+        return INITIAL_APP_DATA;
       }
-
-      const response = await fetch(url, options);
 
       if (response.ok) {
         const data = method === 'GET' ? await response.json() : payload;
@@ -66,24 +71,25 @@ const App: React.FC = () => {
         setLastError('');
         return data;
       } else {
-        throw new Error(`응답 코드: ${response.status}`);
+        throw new Error(`Server Response: ${response.status}`);
       }
     } catch (e: any) {
+      console.error("Sync error:", e);
       setSyncStatus('offline');
-      setLastError(e.message || '네트워크 연결 끊김');
+      setLastError(e.message || '네트워크 연결 오류');
       return null;
     } finally {
       setIsInitialized(true);
     }
   }, [storeId]);
 
-  // 실시간 폴링 (3초 간격)
+  // 실시간 폴링
   useEffect(() => {
     if (storeId) {
       syncWithServer('GET');
       const timer = setInterval(() => {
         if (!syncLock.current) syncWithServer('GET');
-      }, 3000);
+      }, 5000); // 부하를 줄이기 위해 5초로 변경
       return () => clearInterval(timer);
     } else {
       setIsInitialized(true);
@@ -97,13 +103,10 @@ const App: React.FC = () => {
 
   const handleUpdate = async (key: keyof AppData, updatedItems: any[]) => {
     if (!storeId) return;
-    syncLock.current = true;
-    
-    // 낙관적 업데이트 (로컬 먼저 반영)
     const newData = { ...appData, [key]: updatedItems };
-    setAppData(newData);
+    setAppData(newData); // 즉시 로컬 반영 (낙관적 업데이트)
     
-    // 서버 전송
+    syncLock.current = true;
     await syncWithServer('POST', newData);
     syncLock.current = false;
   };
@@ -113,32 +116,30 @@ const App: React.FC = () => {
       const decoded = JSON.parse(decodeURIComponent(escape(atob(code))));
       setAppData(decoded);
       syncWithServer('POST', decoded);
-      alert('비상 데이터가 복구되었습니다.');
-    } catch (e) { alert('잘못된 코드입니다.'); }
+      alert('데이터가 서버에 강제로 덮어씌워졌습니다.');
+    } catch (e) { alert('코드 형식이 잘못되었습니다.'); }
   };
 
   if (!isInitialized && storeId) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
         <Loader2 size={40} className="text-red-600 animate-spin mb-4" />
-        <p className="font-black text-gray-900">클라우드 서버 응답 대기 중...</p>
+        <p className="font-black text-gray-900">클라우드 데이터 불러오는 중...</p>
       </div>
     );
   }
 
+  // 매장 접속 화면
   if (!storeId) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
         <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl space-y-8 animate-in zoom-in duration-500 text-center">
           <div className="inline-block p-4 bg-red-600 rounded-3xl text-white shadow-xl mb-2"><Store size={44} /></div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tighter">투썸 PRO 통합 연동</h1>
-          <div className="p-5 bg-red-50 rounded-2xl border border-red-100">
-            <p className="text-red-600 font-black text-sm">모든 기기에서 아래 번호를 동일하게 입력!</p>
-            <p className="text-3xl font-black text-gray-900 mt-2 letter-spacing-widest">1903384</p>
-          </div>
+          <p className="text-gray-400 font-bold text-sm">기기 간 데이터를 공유하려면<br/>동일한 매장 코드를 사용하세요.</p>
           <input 
-            type="text" placeholder="매장 코드 (1903384)" 
-            className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-red-600 font-black text-center text-xl"
+            type="text" placeholder="매장 코드 (예: 1903384)" 
+            className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-red-600 font-black text-center text-xl uppercase"
             onChange={e => localStorage.setItem('twosome_temp_id', e.target.value)}
           />
           <button onClick={() => {
@@ -150,6 +151,7 @@ const App: React.FC = () => {
     );
   }
 
+  // 로그인 화면
   if (!currentUser) {
     return (
       <LoginPage 
@@ -174,15 +176,7 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-50">
-        <Navigation 
-          user={currentUser} 
-          storeId={storeId} 
-          syncStatus={syncStatus} 
-          latency={latency} 
-          onLogout={() => { if(confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} 
-          onManualSync={() => syncWithServer('GET')}
-          onShowDoctor={() => setShowDoctor(true)}
-        />
+        <Navigation user={currentUser} storeId={storeId} syncStatus={syncStatus} latency={latency} onLogout={() => { if(confirm('로그아웃?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} onManualSync={() => syncWithServer('GET')} onShowDoctor={() => setShowDoctor(true)} />
         <main className="flex-1 pt-20 pb-24 md:pb-8 px-4 md:px-8 max-w-7xl mx-auto w-full">
           <Routes>
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} data={appData.notices} onUpdate={(items) => handleUpdate('notices', items)} />} />
@@ -247,30 +241,23 @@ const ConnectionDoctor: React.FC<{ storeId: string, syncStatus: string, lastErro
     <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 space-y-6">
       <div className="text-center space-y-2">
         <ShieldAlert size={48} className="mx-auto text-red-600 mb-2" />
-        <h3 className="text-2xl font-black text-gray-900">연동 진단 결과</h3>
-        <p className="text-xs font-bold text-gray-400">네트워크 상태를 점검합니다.</p>
+        <h3 className="text-2xl font-black text-gray-900">연동 진단</h3>
       </div>
       <div className="space-y-4">
-        <div className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl">
-          <span className="text-xs font-black text-gray-500">매장 코드</span>
-          <span className="font-black text-red-600 uppercase">{storeId}</span>
+        <div className="p-4 bg-gray-50 rounded-2xl space-y-2">
+          <div className="flex justify-between text-xs font-bold text-gray-400"><span>서버 타입</span> <span>KVDB.IO (Cloud)</span></div>
+          <div className="flex justify-between text-xs font-bold text-gray-400"><span>매장 코드</span> <span className="text-red-600">{storeId.toUpperCase()}</span></div>
+          <div className="flex justify-between text-xs font-bold text-gray-400"><span>연결 상태</span> <span className={syncStatus === 'connected' ? 'text-green-600' : 'text-red-600'}>{syncStatus === 'connected' ? '정상' : '차단됨'}</span></div>
         </div>
-        <div className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl">
-          <span className="text-xs font-black text-gray-500">현재 상태</span>
-          <span className={`font-black ${syncStatus === 'connected' ? 'text-green-600' : 'text-red-600'}`}>{syncStatus === 'connected' ? '정상 연결' : '연결 실패'}</span>
+        {lastError && <div className="p-4 bg-red-50 text-red-700 rounded-xl text-[10px] font-bold">오류 내용: {lastError}</div>}
+        <div className="p-4 bg-blue-50 text-blue-800 rounded-xl text-[10px] font-bold space-y-2">
+          <p>💡 해결 방법:</p>
+          <p>1. 404 에러는 "새 매장"을 의미하므로 무시하고 가입/로그인을 진행하면 자동으로 해결됩니다.</p>
+          <p>2. OFFLINE일 경우, 브라우저 주소창 옆의 [자물쇠]를 눌러 '쿠키 및 사이트 데이터' 허용을 확인하세요.</p>
+          <p>3. 사내 Wi-Fi 보안이 강력하면 막힐 수 있으니 LTE 환경에서 테스트해 보세요.</p>
         </div>
-        {lastError && (
-          <div className="p-4 bg-red-50 text-red-700 rounded-2xl text-[10px] font-bold leading-tight">
-            에러 내용: {lastError}
-            <br/><br/>
-            [해결책]<br/>
-            1. 사내 보안 Wi-Fi 대신 LTE/5G를 켠 상태에서 새로고침하세요.<br/>
-            2. 브라우저 설정에서 '추적 방지'를 꺼주세요.<br/>
-            3. 매장 코드를 1903384가 아닌 다른 숫자로 바꿔보세요.
-          </div>
-        )}
       </div>
-      <button onClick={onClose} className="w-full py-5 bg-black text-white rounded-2xl font-black shadow-xl">닫기</button>
+      <button onClick={onClose} className="w-full py-5 bg-black text-white rounded-2xl font-black">진단창 닫기</button>
     </div>
   </div>
 );
@@ -286,6 +273,7 @@ const LoginPage: React.FC<{ storeId: string, appData: AppData, syncStatus: strin
     if (!userId || userPw.length !== 4) { alert('아이디와 비번(4자리)을 입력하세요.'); return; }
     
     setLoading(true);
+    // 로그인 시도 시 강제 동기화 (최신 사용자 명단 확보)
     const freshData = await onForceSync();
     const currentUsers = freshData ? freshData.users : appData.users;
 
@@ -299,25 +287,25 @@ const LoginPage: React.FC<{ storeId: string, appData: AppData, syncStatus: strin
       onUpdateUsers([...currentUsers, newUser]);
       onLogin(newUser);
     } else {
-      alert('아이디가 없거나 비번이 틀렸습니다.\nOFFLINE 상태라면 가입 정보가 서버에 전달되지 않았을 수 있습니다.');
+      alert('아이디가 없거나 비번이 틀렸습니다.\n(실시간 연동 상태를 확인해 주세요)');
     }
     setLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-      <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-8 relative overflow-hidden">
-        <div className="text-center space-y-2 relative z-10">
+      <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 space-y-8">
+        <div className="text-center space-y-2">
           <button onClick={onShowDoctor} className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black ${syncStatus === 'connected' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>
             {syncStatus === 'connected' ? <Wifi size={14}/> : <WifiOff size={14}/>} 
-            매장:{storeId.toUpperCase()} • {syncStatus === 'connected' ? '실시간 연동중' : '연결안됨(클릭시 진단)'}
+            매장:{storeId.toUpperCase()} • {syncStatus === 'connected' ? '실시간 클라우드 연동 완료' : '서버 응답 확인 중 (진단)'}
           </button>
           <h1 className="text-4xl font-black text-red-600 tracking-tighter italic">TWOSOME PRO</h1>
         </div>
 
-        <div className="space-y-4 relative z-10">
-          <input type="text" placeholder="아이디" className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-bold outline-none focus:border-red-600 transition-all" onChange={e => setForm({...form, id: e.target.value})} />
-          <input type="password" placeholder="비밀번호 (4자리)" maxLength={4} className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-bold outline-none focus:border-red-600 transition-all" onChange={e => setForm({...form, pw: e.target.value})} />
+        <div className="space-y-4">
+          <input type="text" placeholder="아이디" className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-bold outline-none focus:border-red-600" onChange={e => setForm({...form, id: e.target.value})} />
+          <input type="password" placeholder="비밀번호 (4자리)" maxLength={4} className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-bold outline-none focus:border-red-600" onChange={e => setForm({...form, pw: e.target.value})} />
           
           {isSignUp && (
             <div className="space-y-4 pt-2 animate-in slide-in-from-top-4">
@@ -334,9 +322,9 @@ const LoginPage: React.FC<{ storeId: string, appData: AppData, syncStatus: strin
           </button>
           
           <div className="flex flex-col gap-3 pt-6 border-t border-gray-100 text-center">
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-sm font-black text-gray-400 hover:text-red-600">{isSignUp ? '이미 아이디가 있습니다 (로그인)' : '우리 매장 첫 이용인가요? (회원가입)'}</button>
+            <button onClick={() => setIsSignUp(!isSignUp)} className="text-sm font-black text-gray-400 hover:text-red-600">{isSignUp ? '로그인하러 가기' : '우리 매장 첫 이용인가요? (가입)'}</button>
             <div className="flex justify-center gap-4">
-              <button onClick={() => { const code = prompt('코드를 입력하세요'); if(code) onImport(code); }} className="text-[10px] font-black text-blue-500 underline uppercase">비상 수동 연동</button>
+              <button onClick={() => { const code = prompt('코드를 입력하세요'); if(code) onImport(code); }} className="text-[10px] font-black text-blue-500 underline">수동 연동</button>
               <button onClick={onReset} className="text-[10px] font-black text-gray-300 underline uppercase">매장코드 재설정</button>
             </div>
           </div>
