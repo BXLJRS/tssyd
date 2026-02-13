@@ -45,27 +45,27 @@ const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor }: 
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 grid grid-cols-[200px_1fr_220px] items-center px-4 md:px-10 z-50 shadow-sm">
-        <div className="flex items-center"><h1 className="text-xl font-black text-red-600 tracking-tighter shrink-0 italic">A TWOSOME PLACE</h1></div>
-        <nav className="hidden lg:flex items-center justify-center gap-2 overflow-hidden">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 grid grid-cols-[160px_1fr_180px] items-center px-4 md:px-10 z-50 shadow-sm">
+        <div className="flex items-center"><h1 className="text-lg font-black text-red-600 tracking-tighter shrink-0 italic">TWOSOME</h1></div>
+        <nav className="hidden lg:flex items-center justify-center gap-1 overflow-hidden">
           {navItems.map(item => (
-            <Link key={item.path} to={item.path} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${location.pathname === item.path ? 'bg-red-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label}</Link>
+            <Link key={item.path} to={item.path} className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${location.pathname === item.path ? 'bg-red-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label}</Link>
           ))}
-          {user.role === 'OWNER' && <Link to="/admin" className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${location.pathname === '/admin' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>환경설정</Link>}
+          {user.role === 'OWNER' && <Link to="/admin" className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${location.pathname === '/admin' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>환경설정</Link>}
         </nav>
-        <div className="flex items-center justify-end gap-3">
-          <div className="hidden sm:flex flex-col items-end mr-2 text-right">
-            <span className="text-[11px] font-black text-gray-900">{user.nickname} {user.role === 'OWNER' ? '점주님' : '님'}</span>
-            <span className="text-[9px] font-bold text-green-500 flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>온라인</span>
+        <div className="flex items-center justify-end gap-2">
+          <div className="hidden sm:flex flex-col items-end mr-1 text-right">
+            <span className="text-[10px] font-black text-gray-900">{user.nickname} {user.role === 'OWNER' ? '점주님' : '님'}</span>
+            <span className="text-[8px] font-bold text-green-500 flex items-center gap-1"><div className="w-1 h-1 bg-green-500 rounded-full"></div>온라인</span>
           </div>
-          <button onClick={onShowDoctor} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black transition-all min-w-[100px] ${syncStatus === 'connected' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>
-            {syncStatus === 'connected' ? <Wifi size={12}/> : <WifiOff size={12}/>}
-            <span>{syncStatus === 'connected' ? `${sec > 0 ? sec : 0}s 전` : '연결지연'}</span>
+          <button onClick={onShowDoctor} className={`flex items-center justify-center gap-1 px-2 py-1 rounded-full text-[9px] font-black transition-all ${syncStatus === 'connected' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600 animate-pulse'}`}>
+            {syncStatus === 'connected' ? <Wifi size={10}/> : <WifiOff size={10}/>}
+            <span>{syncStatus === 'connected' ? `${sec > 0 ? sec : 0}s` : '연결됨'}</span>
           </button>
-          <button onClick={onLogout} className="p-2 text-gray-300 hover:text-red-600 transition-colors"><LogOut size={22} /></button>
+          <button onClick={onLogout} className="p-2 text-gray-300 hover:text-red-600 transition-colors"><LogOut size={20} /></button>
         </div>
       </header>
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex justify-around items-center z-50 lg:hidden pb-safe px-2">
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex justify-around items-center z-50 lg:hidden pb-safe">
         {navItems.map(item => (
           <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-1 w-full ${location.pathname === item.path ? 'text-red-600' : 'text-gray-300'}`}><item.icon size={18} /><span className="text-[8px] font-black">{item.label}</span></Link>
         ))}
@@ -82,21 +82,19 @@ const App: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
   const [showDoctor, setShowDoctor] = useState(false);
-  
-  // 로그인/회원가입 상태
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   
   const syncLock = useRef(false);
   const debounceTimer = useRef<any>(null);
 
-  // 로컬 저장 함수
+  // 로컬 저장 (State + LocalStorage)
   const saveLocally = useCallback((newData: AppData) => {
     setAppData(newData);
     localStorage.setItem(`twosome_data_${storeId}`, JSON.stringify(newData));
     setLastSyncTime(Date.now());
   }, [storeId]);
 
-  // 서버 동기화 함수
+  // 서버 동기화
   const syncWithServer = useCallback(async (method: 'GET' | 'POST', payload?: AppData): Promise<AppData | null> => {
     if (!storeId) return null;
     const url = `${DB_BASE}/${storeId}`;
@@ -120,12 +118,11 @@ const App: React.FC = () => {
         if (data && typeof data === 'object') {
           if (method === 'GET') {
             setAppData(prev => {
-              // 중요: 유저 정보는 로컬에 있는 것과 서버에 있는 것을 무조건 합침 (데이터 증발 방지)
               const mergedUsers = [...(data.users || [])];
               prev.users.forEach(u => { if(!mergedUsers.find(m => m.id === u.id)) mergedUsers.push(u); });
 
-              // 서버 데이터가 더 최신이거나 내 로컬이 비어있을 때만 업데이트
-              if ((data.lastUpdated || 0) > prev.lastUpdated || prev.users.length === 0) {
+              // 로컬 데이터가 비어있거나 서버가 더 최신일 때만 교체
+              if ((data.lastUpdated || 0) >= prev.lastUpdated || prev.users.length === 0) {
                 const updated = { ...INITIAL_APP_DATA, ...data, users: mergedUsers };
                 localStorage.setItem(`twosome_data_${storeId}`, JSON.stringify(updated));
                 return updated;
@@ -147,23 +144,24 @@ const App: React.FC = () => {
     }
   }, [storeId]);
 
-  // 초기화 및 주기적 동기화
   useEffect(() => {
     if (storeId) {
       const saved = localStorage.getItem(`twosome_data_${storeId}`);
-      if (saved) setAppData(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setAppData(parsed);
+      }
       
       syncWithServer('GET');
       const timer = setInterval(() => {
         if (!syncLock.current) syncWithServer('GET');
-      }, 15000);
+      }, 10000);
       return () => clearInterval(timer);
     } else {
       setIsInitialized(true);
     }
   }, [storeId, syncWithServer]);
 
-  // 세션 체크
   useEffect(() => {
     const saved = localStorage.getItem('twosome_session');
     if (saved) setCurrentUser(JSON.parse(saved));
@@ -184,122 +182,117 @@ const App: React.FC = () => {
 
   if (!isInitialized && storeId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
-        <Loader2 className="text-red-600 animate-spin mb-4" size={40} />
-        <p className="font-black italic text-sm tracking-widest text-gray-400">CONNECTING TO TWOSOME CLOUD...</p>
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[9999]">
+        <Loader2 className="text-red-600 animate-spin mb-4" size={32} />
+        <p className="font-black text-xs tracking-widest text-gray-400">CONNECTING...</p>
       </div>
     );
   }
 
-  // 1. 매장 설정 화면 (가장 처음)
+  // 1. 매장 코드 입력 화면 (초기 진입)
   if (!storeId) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
-        <div className="bg-white w-full max-w-lg rounded-[3rem] p-12 shadow-2xl space-y-10 animate-in zoom-in duration-500">
-          <div className="text-center space-y-4">
-            <div className="inline-block p-6 bg-red-600 rounded-[2rem] text-white mb-2 shadow-xl shadow-red-200"><Store size={50} /></div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tighter italic uppercase">TWOSOME PRO</h1>
-            <p className="text-gray-400 font-bold text-sm leading-relaxed">매장 식별 코드를 입력하세요.<br/>(처음이라면 원하는 이름을 영문으로 입력하세요)</p>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 md:p-10 shadow-2xl space-y-8 animate-in zoom-in duration-300">
+          <div className="text-center space-y-3">
+            <div className="inline-block p-4 bg-red-600 rounded-3xl text-white shadow-xl shadow-red-100"><Store size={40} /></div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tighter italic uppercase">TWOSOME</h1>
+            <p className="text-gray-400 font-bold text-xs leading-relaxed">매장 전용 식별 코드를 입력하세요.<br/>(처음이면 원하는 영문 이름을 입력하세요)</p>
           </div>
           <div className="space-y-4">
-            <input type="text" placeholder="매장 코드 (예: ts-gangnam)" className="w-full p-6 bg-gray-50 border-2 border-gray-100 rounded-[2rem] outline-none focus:border-red-600 font-black text-center text-2xl transition-all lowercase" id="store-input" />
-            <button onClick={() => { 
+            <input type="text" placeholder="매장 코드 (예: ts-center-1)" className="w-full p-5 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-2xl outline-none font-black text-center text-xl transition-all lowercase" id="store-input" onKeyDown={(e) => {if(e.key==='Enter') (document.getElementById('store-btn') as any).click()}} />
+            <button id="store-btn" onClick={() => { 
               const id = (document.getElementById('store-input') as HTMLInputElement).value?.trim().toLowerCase(); 
               if(id) { localStorage.setItem('twosome_store_id', id); window.location.reload(); }
-            }} className="w-full py-6 bg-black text-white rounded-[2rem] font-black text-xl shadow-xl hover:bg-gray-800 active:scale-95 transition-all uppercase tracking-tight">시스템 연동 시작</button>
-          </div>
-          <div className="bg-gray-50 p-6 rounded-2xl flex items-start gap-3">
-            <Info className="text-gray-400 shrink-0" size={18} />
-            <p className="text-[11px] font-bold text-gray-400 leading-relaxed">입력하신 코드로 모든 직원이 데이터를 공유하게 됩니다. 보안을 위해 우리 매장만의 고유한 코드를 사용하세요.</p>
+            }} className="w-full py-5 bg-black text-white rounded-2xl font-black text-lg shadow-xl hover:bg-gray-800 transition-all uppercase">매장 연결</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // 2. 통합 인증 화면 (로그인/회원가입)
+  // 2. 통합 인증 화면 (로그인/회원가입 - 모바일 최적화 버전)
   if (!currentUser) {
     return (
-      <div className="min-h-screen flex bg-gray-50 font-sans p-4 md:p-10 items-center justify-center">
-        <div className="w-full max-w-5xl bg-white rounded-[4rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row h-full max-h-[800px]">
-          {/* 브랜딩 영역 */}
-          <div className="lg:w-1/2 bg-red-600 p-16 flex flex-col justify-between text-white relative">
-            <div className="absolute top-[-100px] left-[-100px] w-[400px] h-[400px] bg-white/10 rounded-full blur-3xl"></div>
-            <div className="z-10"><h2 className="text-3xl font-black italic tracking-tighter">A TWOSOME PLACE</h2></div>
-            <div className="z-10 space-y-6">
-              <h3 className="text-6xl font-black leading-[1.1] tracking-tighter">Premium<br/>Partner<br/>Portal.</h3>
-              <p className="text-red-100 font-bold max-w-xs text-lg opacity-80">최고의 매장 관리를 위한 점주 전용 워크페이스입니다.</p>
+      <div className="min-h-screen flex flex-col bg-gray-50 font-sans md:items-center md:justify-center overflow-y-auto">
+        <div className="w-full max-w-5xl bg-white md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row md:min-h-[600px]">
+          {/* 브랜딩 영역 (모바일에서는 간소화) */}
+          <div className="bg-red-600 p-8 md:p-16 flex flex-col justify-between text-white md:w-5/12">
+            <div className="z-10 flex justify-between items-center md:block">
+              <h2 className="text-xl md:text-2xl font-black italic tracking-tighter">A TWOSOME PLACE</h2>
+              <div className="md:hidden bg-white/20 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">{storeId}</div>
             </div>
-            <div className="z-10 flex items-center gap-2 text-xs font-black tracking-widest uppercase opacity-50">
-              <LayoutDashboard size={14} /> <span>Twosome Management Pro v4.0</span>
+            <div className="hidden md:block z-10 space-y-4">
+              <h3 className="text-5xl font-black leading-[1.1] tracking-tighter">Premium<br/>Partner.</h3>
+              <p className="text-red-100 font-bold text-sm opacity-80">최고의 매장 관리를 위한 점주 및 직원 전용 포탈입니다.</p>
+            </div>
+            <div className="hidden md:flex z-10 items-center gap-2 text-[10px] font-black tracking-widest uppercase opacity-40">
+              <LayoutDashboard size={14} /> <span>v4.0 Sync System</span>
             </div>
           </div>
 
-          {/* 입력 영역 */}
-          <div className="lg:w-1/2 p-12 md:p-20 flex flex-col justify-center relative bg-white">
-            <div className="w-full max-w-sm mx-auto space-y-10 animate-in slide-in-from-right-10 duration-500">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+          {/* 입력 폼 영역 */}
+          <div className="flex-1 p-8 md:p-16 flex flex-col justify-center bg-white">
+            <div className="w-full max-w-sm mx-auto space-y-8 md:space-y-10">
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <h1 className="text-3xl font-black text-gray-900 tracking-tight">
                     {authMode === 'LOGIN' ? '로그인' : '계정 등록'}
                   </h1>
-                  <div className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-red-100">{storeId}</div>
+                  <div className="hidden md:block bg-red-50 text-red-600 px-3 py-1 rounded-full text-[10px] font-black uppercase border border-red-100">{storeId}</div>
                 </div>
-                <p className="text-gray-400 font-bold">{authMode === 'LOGIN' ? '계정 정보를 입력해 주세요.' : '새로운 관리 주체를 등록합니다.'}</p>
+                <p className="text-gray-400 font-bold text-sm">{authMode === 'LOGIN' ? '아이디와 비밀번호를 입력하세요.' : '우리 매장의 새로운 식구를 등록합니다.'}</p>
               </div>
 
               {authMode === 'LOGIN' ? (
-                /* --- 로그인 섹션 --- */
-                <div className="space-y-6">
-                  <div className="space-y-4">
+                <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="space-y-3">
                     <div className="relative">
-                      <UserIcon size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300" />
-                      <input type="text" placeholder="아이디 (ID)" className="w-full pl-14 pr-6 py-5 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-3xl outline-none font-bold transition-all lowercase" id="login-id" />
+                      <UserIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                      <input type="text" placeholder="아이디" className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-2xl outline-none font-bold transition-all lowercase" id="login-id" />
                     </div>
                     <div className="relative">
-                      <Lock size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300" />
-                      <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full pl-14 pr-6 py-5 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-3xl outline-none font-bold transition-all tracking-widest" id="login-pw" />
+                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                      <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-2xl outline-none font-bold transition-all tracking-widest" id="login-pw" />
                     </div>
                   </div>
-                  <button onClick={async (e) => {
+                  <button onClick={async () => {
                     const id = (document.getElementById('login-id') as HTMLInputElement).value.toLowerCase().trim();
                     const pw = (document.getElementById('login-pw') as HTMLInputElement).value.trim();
-                    if(!id || !pw) return alert('아이디와 비밀번호를 입력하세요.');
+                    if(!id || !pw) return alert('정보를 입력하세요.');
                     
-                    // 내 로컬 데이터를 최우선적으로 믿고 로그인
                     const user = appData.users.find(u => u.id === id && u.passwordHash === pw);
                     if (user) { 
                       setCurrentUser(user); 
                       localStorage.setItem('twosome_session', JSON.stringify(user)); 
                     } else { 
-                      alert('아이디 또는 비밀번호가 올바르지 않습니다.'); 
+                      alert('계정 정보를 다시 확인해 주세요.\n아이디나 비밀번호가 틀렸거나 아직 연동 전일 수 있습니다.'); 
                     }
-                  }} className="w-full py-6 bg-black text-white rounded-[2.5rem] font-black text-xl shadow-2xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3">
-                    접속하기 <ChevronRight size={22}/>
+                  }} className="w-full py-5 bg-black text-white rounded-2xl font-black text-lg shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2">
+                    매장 입장하기 <ChevronRight size={20}/>
                   </button>
-                  <div className="pt-8 border-t border-gray-50 flex flex-col items-center gap-4">
-                    <button onClick={() => setAuthMode('REGISTER')} className="text-sm font-black text-gray-400 hover:text-red-600 transition-colors flex items-center gap-2">
-                      <UserPlus size={16}/> 처음이신가요? 계정 등록하기
+                  <div className="pt-6 border-t border-gray-100 flex flex-col items-center gap-4">
+                    <button onClick={() => setAuthMode('REGISTER')} className="text-xs font-black text-gray-400 hover:text-red-600 transition-colors flex items-center gap-1">
+                      <UserPlus size={14}/> 신규 계정 등록이 필요하신가요?
                     </button>
-                    <button onClick={() => { if(confirm('매장 코드를 다시 설정하시겠습니까?')) { localStorage.clear(); window.location.reload(); } }} className="text-[10px] font-black text-gray-300 underline uppercase tracking-tighter">매장 코드 재설정</button>
+                    <button onClick={() => { if(confirm('매장 코드를 초기화하시겠습니까?')) { localStorage.clear(); window.location.reload(); } }} className="text-[10px] font-black text-gray-300 underline uppercase">매장 코드 재설정</button>
                   </div>
                 </div>
               ) : (
-                /* --- 회원가입 섹션 --- */
-                <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
-                  <div className="space-y-4">
-                    <input type="text" placeholder="새로운 아이디 (영문 소문자)" className="w-full px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-3xl outline-none font-bold transition-all lowercase" id="reg-id" />
-                    <input type="text" placeholder="닉네임 (본명 추천)" className="w-full px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-3xl outline-none font-bold transition-all" id="reg-name" />
-                    <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-3xl outline-none font-bold transition-all tracking-widest" id="reg-pw" />
-                    <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-6 animate-in slide-in-from-right-2 duration-300">
+                  <div className="space-y-3">
+                    <input type="text" placeholder="아이디 (영문 소문자)" className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-2xl outline-none font-bold transition-all lowercase" id="reg-id" />
+                    <input type="text" placeholder="이름 (닉네임)" className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-2xl outline-none font-bold transition-all" id="reg-name" />
+                    <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-2xl outline-none font-bold transition-all tracking-widest" id="reg-pw" />
+                    <div className="grid grid-cols-2 gap-2">
                       <button id="role-owner" onClick={() => { 
                         document.getElementById('role-owner')?.classList.add('bg-black', 'text-white');
                         document.getElementById('role-staff')?.classList.remove('bg-red-600', 'text-white');
-                      }} className="py-4 bg-gray-50 rounded-2xl font-black text-sm transition-all border border-gray-100 bg-black text-white">점주 (Owner)</button>
+                      }} className="py-4 bg-gray-50 rounded-xl font-black text-xs transition-all border border-gray-100 bg-black text-white">점주 (Owner)</button>
                       <button id="role-staff" onClick={() => { 
                         document.getElementById('role-staff')?.classList.add('bg-red-600', 'text-white');
                         document.getElementById('role-owner')?.classList.remove('bg-black', 'text-white');
-                      }} className="py-4 bg-gray-50 rounded-2xl font-black text-sm transition-all border border-gray-100">직원 (Staff)</button>
+                      }} className="py-4 bg-gray-50 rounded-xl font-black text-xs transition-all border border-gray-100">직원 (Staff)</button>
                     </div>
                   </div>
                   <button onClick={async () => {
@@ -309,27 +302,26 @@ const App: React.FC = () => {
                     const isOwner = document.getElementById('role-owner')?.classList.contains('bg-black');
 
                     if(!id || !pw || !name) return alert('모든 정보를 입력하세요.');
-                    if(pw.length !== 4) return alert('비밀번호는 4자리여야 합니다.');
-                    if(appData.users.find(u => u.id === id)) return alert('이미 존재하는 아이디입니다.');
+                    if(pw.length !== 4) return alert('비밀번호는 숫자 4자리입니다.');
+                    if(appData.users.find(u => u.id === id)) return alert('이미 있는 아이디입니다.');
 
                     const newUser: User = { id, passwordHash: pw, nickname: name, role: isOwner ? 'OWNER' : 'STAFF', updatedAt: Date.now() };
                     
-                    // 1. 데이터 즉시 업데이트 및 로컬 저장
                     const updatedUsers = [...appData.users, newUser];
                     const nextData = { ...appData, users: updatedUsers, lastUpdated: Date.now() };
-                    saveLocally(nextData);
                     
-                    // 2. 서버 강제 전송 시도
+                    // 1. 로컬에 즉시 박기
+                    saveLocally(nextData);
+                    // 2. 서버에 쏘기
                     syncWithServer('POST', nextData);
-
-                    // 3. ★ 핵심: 즉시 자동 로그인 처리 ★
+                    // 3. 바로 로그인 처리
                     setCurrentUser(newUser);
                     localStorage.setItem('twosome_session', JSON.stringify(newUser));
-                    alert(`[${name}]님, 환영합니다!\n계정 생성이 완료되어 자동으로 로그인됩니다.`);
-                  }} className="w-full py-6 bg-red-600 text-white rounded-[2.5rem] font-black text-xl shadow-2xl hover:bg-red-700 transition-all flex items-center justify-center gap-2">
-                    <CheckCircle2 size={22} /> 등록 및 시작하기
+                    alert(`${name}님, 등록과 동시에 로그인되었습니다!`);
+                  }} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-red-700 transition-all">
+                    회원가입 완료 및 시작
                   </button>
-                  <button onClick={() => setAuthMode('LOGIN')} className="w-full py-4 text-gray-400 font-bold hover:text-gray-900 transition-colors">이미 계정이 있습니다 (로그인)</button>
+                  <button onClick={() => setAuthMode('LOGIN')} className="w-full py-2 text-gray-400 font-bold text-xs hover:text-gray-900 transition-colors">이미 계정이 있습니다</button>
                 </div>
               )}
             </div>
@@ -343,7 +335,7 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-slate-50">
         <Navigation user={currentUser} syncStatus={syncStatus} lastSyncTime={lastSyncTime} onLogout={() => { if(confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} onShowDoctor={() => setShowDoctor(true)} />
-        <main className="flex-1 pt-20 pb-24 lg:pb-10 px-4 md:px-10 max-w-[1600px] mx-auto w-full">
+        <main className="flex-1 pt-20 pb-24 lg:pb-10 px-4 md:px-10 max-w-[1400px] mx-auto w-full">
           <Routes>
             <Route path="/notice" element={<NoticeBoard currentUser={currentUser} data={appData.notices} onUpdate={(it) => handleUpdate('notices', it)} />} />
             <Route path="/handover" element={<HandoverBoard currentUser={currentUser} data={appData.handovers} onUpdate={(it) => handleUpdate('handovers', it)} />} />
@@ -358,20 +350,21 @@ const App: React.FC = () => {
         </main>
         {showDoctor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 text-center">
-            <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl space-y-8 animate-in zoom-in duration-300">
-              <ShieldCheck size={60} className="mx-auto text-green-600 mb-2" />
-              <div className="space-y-2">
-                <h3 className="text-3xl font-black italic tracking-tighter uppercase">Cloud Sync Monitor</h3>
-                <p className="text-gray-400 font-bold text-sm">데이터 연동 무결성을 실시간 체크합니다.</p>
+            <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl space-y-6 animate-in zoom-in duration-200">
+              <ShieldCheck size={48} className="mx-auto text-green-600" />
+              <div className="space-y-1">
+                <h3 className="text-xl font-black uppercase tracking-tighter italic">Cloud Health</h3>
+                <p className="text-gray-400 font-bold text-[10px]">데이터 동기화 상태를 확인합니다.</p>
               </div>
-              <div className="p-6 bg-gray-50 rounded-3xl space-y-4 text-xs font-bold text-gray-500 text-left border border-gray-100">
-                <div className="flex justify-between items-center"><span>Store Identifer</span> <span className="text-red-600 font-black uppercase text-sm">{storeId}</span></div>
-                <div className="flex justify-between items-center"><span>Sync Health</span> <span className={syncStatus === 'connected' ? 'text-green-500' : 'text-red-500'}>{syncStatus.toUpperCase()}</span></div>
-                <div className="flex justify-between items-center"><span>Staff Count</span> <span className="text-gray-900">{appData.users.length} members</span></div>
+              <div className="p-5 bg-gray-50 rounded-2xl space-y-3 text-[10px] font-bold text-gray-500 text-left">
+                <div className="flex justify-between items-center"><span>Store ID</span> <span className="text-red-600 font-black">{storeId}</span></div>
+                <div className="flex justify-between items-center"><span>Sync Status</span> <span className={syncStatus === 'connected' ? 'text-green-500' : 'text-red-500'}>{syncStatus.toUpperCase()}</span></div>
+                <div className="flex justify-between items-center"><span>Last Update</span> <span className="text-gray-900">{new Date(appData.lastUpdated).toLocaleTimeString()}</span></div>
+                <div className="flex justify-between items-center"><span>Staff Count</span> <span className="text-gray-900">{appData.users.length}명</span></div>
               </div>
-              <div className="flex flex-col gap-3">
-                <button onClick={() => { syncWithServer('GET'); setShowDoctor(false); }} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 italic uppercase shadow-xl hover:bg-red-700 transition-all"><RotateCcw size={20} /> Force Re-Sync</button>
-                <button onClick={() => setShowDoctor(false)} className="w-full py-5 bg-black text-white rounded-2xl font-black">확인 완료</button>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => { syncWithServer('GET'); setShowDoctor(false); }} className="w-full py-4 bg-red-600 text-white rounded-xl font-black flex items-center justify-center gap-2 italic uppercase shadow-lg active:scale-95 transition-all"><RotateCcw size={16} /> Force Sync</button>
+                <button onClick={() => setShowDoctor(false)} className="w-full py-4 bg-black text-white rounded-xl font-black">확인</button>
               </div>
             </div>
           </div>
