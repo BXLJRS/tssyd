@@ -1,55 +1,43 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Reservation, User } from '../types';
 import { Plus, Search, Calendar, Phone, User as UserIcon, Trash2, CheckCircle, Clock, Check } from 'lucide-react';
 
 interface ReservationManagementProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
-  onUpdate?: () => void;
+  data: Reservation[];
+  onUpdate: (updated: Reservation[]) => void;
 }
 
-export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, onUpdate }) => {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+export const ReservationManagement: React.FC<ReservationManagementProps> = ({ currentUser, data, onUpdate }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({ customerName: '', phoneNumber: '', date: new Date().toISOString().split('T')[0], time: '12:00', item: '', notes: '' });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('twosome_reservations');
-    if (saved) setReservations(JSON.parse(saved));
-  }, []);
-
-  const saveReservations = (updated: Reservation[]) => {
-    setReservations(updated);
-    localStorage.setItem('twosome_reservations', JSON.stringify(updated));
-    // Trigger cloud sync if provided
-    onUpdate?.();
-  };
 
   const handleAdd = () => {
     if (!formData.customerName || !formData.item) {
       alert('필수 정보를 입력해 주세요.');
       return;
     }
-    const newRes: Reservation = { id: Date.now().toString(), ...formData, isCompleted: false, createdAt: Date.now() };
-    saveReservations([newRes, ...reservations]);
+    // Fix: Added missing updatedAt
+    const newRes: Reservation = { id: Date.now().toString(), ...formData, isCompleted: false, createdAt: Date.now(), updatedAt: Date.now() };
+    onUpdate([newRes, ...data]);
     setIsAdding(false);
     setFormData({ customerName: '', phoneNumber: '', date: new Date().toISOString().split('T')[0], time: '12:00', item: '', notes: '' });
   };
 
   const toggleComplete = (id: string) => {
-    saveReservations(reservations.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted } : r));
+    onUpdate(data.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted, updatedAt: Date.now() } : r));
   };
 
   const deleteRes = (id: string) => {
     if (confirm('예약을 취소/삭제할까요?')) {
-      saveReservations(reservations.filter(r => r.id !== id));
+      onUpdate(data.filter(r => r.id !== id));
     }
   };
 
   // 정렬 로직: 완료된 항목은 아래로, 미완료 항목은 시간순으로
-  const filtered = reservations.filter(r => 
+  const filtered = data.filter(r => 
     r.customerName.includes(searchTerm) || r.item.includes(searchTerm) || r.phoneNumber.includes(searchTerm)
   ).sort((a, b) => {
     if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;

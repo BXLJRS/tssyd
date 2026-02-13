@@ -1,17 +1,17 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Handover, User } from '../types';
 import { formatDate } from '../utils';
 import { ClipboardList, Plus, Trash2, Bold, Palette } from 'lucide-react';
 
 interface HandoverBoardProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
-  onUpdate?: () => void;
+  // Use passed data instead of local state to ensure sync
+  data: Handover[];
+  onUpdate: (updated: Handover[]) => void;
 }
 
-export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpdate }) => {
-  const [handovers, setHandovers] = useState<Handover[]>([]);
+export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, data, onUpdate }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({ 
     title: '', 
@@ -20,20 +20,9 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpd
     isBold: false 
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem('twosome_handovers');
-    if (saved) setHandovers(JSON.parse(saved));
-  }, []);
-
-  const saveHandovers = (updated: Handover[]) => {
-    setHandovers(updated);
-    localStorage.setItem('twosome_handovers', JSON.stringify(updated));
-    // Trigger cloud sync if provided
-    onUpdate?.();
-  };
-
   const handleAdd = () => {
     if (!formData.title || !formData.content) return;
+    // Fix: Added missing updatedAt
     const item: Handover = {
       id: Date.now().toString(),
       title: formData.title,
@@ -41,16 +30,17 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpd
       authorId: currentUser.id,
       authorNickname: currentUser.nickname,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       styles: { color: formData.color, isBold: formData.isBold }
     };
-    saveHandovers([item, ...handovers]);
+    onUpdate([item, ...data]);
     setFormData({ title: '', content: '', color: '#000000', isBold: false });
     setIsAdding(false);
   };
 
   const deleteItem = (id: string) => {
     if (confirm('인계사항을 삭제하시겠습니까?')) {
-      saveHandovers(handovers.filter(h => h.id !== id));
+      onUpdate(data.filter(h => h.id !== id));
     }
   };
 
@@ -109,7 +99,7 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpd
       )}
 
       <div className="grid gap-4">
-        {handovers.map(item => (
+        {data.map(item => (
           <div key={item.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-3">
               <h3 className="text-lg font-bold text-gray-900">{item.title}</h3>
@@ -131,7 +121,7 @@ export const HandoverBoard: React.FC<HandoverBoardProps> = ({ currentUser, onUpd
             </div>
           </div>
         ))}
-        {handovers.length === 0 && !isAdding && (
+        {data.length === 0 && !isAdding && (
           <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200 text-gray-400">
             표시할 인계사항이 없습니다.
           </div>

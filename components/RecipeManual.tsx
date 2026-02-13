@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User, Recipe, RecipeTempOption } from '../types';
 import { Search, Plus, X, ChevronRight, Edit3, Trash2, BookOpen, Snowflake, Flame, Info } from 'lucide-react';
 
 interface RecipeManualProps {
   currentUser: User;
-  onUpdate?: () => void;
+  data: Recipe[];
+  onUpdate: (updated: Recipe[]) => void;
 }
 
 const DEFAULT_DETAIL = { content: '' };
@@ -15,8 +16,7 @@ const DEFAULT_TEMP: RecipeTempOption = {
   max: { ...DEFAULT_DETAIL }
 };
 
-export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, onUpdate }) => {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, data, onUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeTemp, setActiveTemp] = useState<'ICE' | 'HOT' | null>(null);
@@ -24,17 +24,6 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, onUpdat
   
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Recipe>>({});
-
-  useEffect(() => {
-    const saved = localStorage.getItem('twosome_recipes');
-    if (saved) setRecipes(JSON.parse(saved));
-  }, []);
-
-  const saveRecipes = (updated: Recipe[]) => {
-    setRecipes(updated);
-    localStorage.setItem('twosome_recipes', JSON.stringify(updated));
-    onUpdate?.();
-  };
 
   const handleAddClick = () => {
     setEditData({
@@ -61,29 +50,30 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, onUpdat
     
     let updated: Recipe[];
     if (editData.id) {
-      updated = recipes.map(r => r.id === editData.id ? { ...r, ...editData, lastUpdated: Date.now() } as Recipe : r);
+      updated = data.map(r => r.id === editData.id ? { ...r, ...editData, lastUpdated: Date.now(), updatedAt: Date.now() } as Recipe : r);
     } else {
       const newRecipe: Recipe = {
         ...editData,
         id: Date.now().toString(),
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        updatedAt: Date.now()
       } as Recipe;
-      updated = [newRecipe, ...recipes];
+      updated = [newRecipe, ...data];
     }
     
-    saveRecipes(updated);
+    onUpdate(updated);
     setIsEditing(false);
     setEditData({});
   };
 
   const deleteRecipe = (id: string) => {
     if (confirm('이 레시피를 정말 삭제하시겠습니까?')) {
-      saveRecipes(recipes.filter(r => r.id !== id));
+      onUpdate(data.filter(r => r.id !== id));
       if (selectedRecipe?.id === id) setSelectedRecipe(null);
     }
   };
 
-  const filtered = recipes.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = data.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   // 상세 보기 화면
   if (selectedRecipe) {
@@ -266,7 +256,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, onUpdat
                         <textarea 
                           className="w-full p-4 bg-white border border-blue-100 rounded-2xl text-sm font-bold min-h-[80px]"
                           placeholder={`예: 에스프레소 2샷, 시럽 2펌프...`}
-                          value={editData.ice?.[size].content}
+                          value={editData.ice?.[size]?.content}
                           onChange={e => {
                             const newIce = { ...editData.ice } as RecipeTempOption;
                             newIce[size].content = e.target.value;
@@ -290,7 +280,7 @@ export const RecipeManual: React.FC<RecipeManualProps> = ({ currentUser, onUpdat
                         <textarea 
                           className="w-full p-4 bg-white border border-orange-100 rounded-2xl text-sm font-bold min-h-[80px]"
                           placeholder={`예: 스팀우유 250ml, 파우더 3스푼...`}
-                          value={editData.hot?.[size].content}
+                          value={editData.hot?.[size]?.content}
                           onChange={e => {
                             const newHot = { ...editData.hot } as RecipeTempOption;
                             newHot[size].content = e.target.value;

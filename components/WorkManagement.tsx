@@ -7,8 +7,7 @@ import { Calendar as CalendarIcon, Clock, Star, Users, Plus, X, AlertCircle, Che
 interface WorkManagementProps {
   currentUser: User;
   allUsers: User[];
-  // Added onUpdate prop to fix TypeScript error in App.tsx
-  onUpdate?: () => void;
+  onUpdate?: (updated: WorkSchedule[]) => void;
 }
 
 export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, allUsers, onUpdate }) => {
@@ -31,8 +30,7 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
   const saveSchedules = (updated: WorkSchedule[]) => {
     setSchedules(updated);
     localStorage.setItem('twosome_schedules', JSON.stringify(updated));
-    // Trigger cloud sync if provided
-    onUpdate?.();
+    onUpdate?.(updated);
   };
 
   const handleAddSchedule = () => {
@@ -43,6 +41,7 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
     const user = allUsers.find(u => u.id === currentEdit.userId);
     if (!user) return;
 
+    // Fix: Added missing updatedAt
     const newSchedule: WorkSchedule = {
       id: Date.now().toString(),
       userId: user.id,
@@ -51,7 +50,8 @@ export const WorkManagement: React.FC<WorkManagementProps> = ({ currentUser, all
       startTime: currentEdit.startTime,
       endTime: currentEdit.endTime,
       hasBreak: !!currentEdit.hasBreak,
-      notes: currentEdit.notes
+      notes: currentEdit.notes,
+      updatedAt: Date.now()
     };
     saveSchedules([...schedules, newSchedule]);
     setIsEditing(false);

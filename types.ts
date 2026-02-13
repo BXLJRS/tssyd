@@ -6,6 +6,8 @@ export interface User {
   nickname: string;
   role: UserRole;
   passwordHash: string;
+  updatedAt?: number;
+  startDate?: string;
 }
 
 export interface Notice {
@@ -16,6 +18,7 @@ export interface Notice {
   authorNickname: string;
   isPinned: boolean;
   createdAt: number;
+  updatedAt: number;
 }
 
 export interface Handover {
@@ -25,6 +28,7 @@ export interface Handover {
   authorId: string;
   authorNickname: string;
   createdAt: number;
+  updatedAt: number;
   styles?: {
     color?: string;
     isBold?: boolean;
@@ -39,6 +43,7 @@ export interface ChecklistItem {
   content: string;
   isCompleted: boolean;
   notes?: string;
+  updatedAt?: number;
 }
 
 export interface DailyReport {
@@ -54,6 +59,7 @@ export interface DailyReport {
   actualStartTime?: string;
   actualEndTime?: string;
   hasBreak?: boolean;
+  updatedAt: number;
 }
 
 export interface WorkSchedule {
@@ -65,6 +71,7 @@ export interface WorkSchedule {
   endTime: string;
   hasBreak: boolean;
   notes?: string;
+  updatedAt: number;
 }
 
 export interface InventoryItem {
@@ -73,6 +80,7 @@ export interface InventoryItem {
   name: string;
   count: number;
   alertEnabled: boolean;
+  updatedAt: number;
 }
 
 export interface Reservation {
@@ -85,17 +93,20 @@ export interface Reservation {
   notes: string;
   isCompleted: boolean;
   createdAt: number;
+  updatedAt: number;
 }
 
-// 레시피 관련 타입
-export interface RecipeSizeDetail {
+// Added missing Recipe-related types
+export type InventoryCategory = string;
+
+export interface RecipeDetail {
   content: string;
 }
 
 export interface RecipeTempOption {
-  regular: RecipeSizeDetail;
-  large: RecipeSizeDetail;
-  max: RecipeSizeDetail;
+  regular: RecipeDetail;
+  large: RecipeDetail;
+  max: RecipeDetail;
 }
 
 export interface Recipe {
@@ -107,9 +118,8 @@ export interface Recipe {
   ice?: RecipeTempOption;
   hot?: RecipeTempOption;
   lastUpdated: number;
+  updatedAt: number;
 }
-
-export type InventoryCategory = '홀케익' | '피스케익' | '과일' | '음료관련' | '포장재' | '기타' | string;
 
 export interface AppData {
   users: User[];

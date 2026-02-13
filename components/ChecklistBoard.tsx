@@ -7,12 +7,13 @@ import { CheckSquare, Square, Plus, Send, Clock, CheckCircle2, AlertCircle, Tras
 
 interface ChecklistBoardProps {
   currentUser: User;
-  onUpdate?: () => void;
+  data: ChecklistItem[];
+  onUpdate: (updated: ChecklistItem[]) => void;
+  onReportSubmit: (report: DailyReport) => void;
 }
 
-export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onUpdate }) => {
+export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, data, onUpdate, onReportSubmit }) => {
   const [activePart, setActivePart] = useState<ShiftPart>('OPEN');
-  const [items, setItems] = useState<ChecklistItem[]>([]);
   const [memo, setMemo] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newItemText, setNewItemText] = useState('');
@@ -32,7 +33,6 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
   const dayName = getDayOfWeek(today);
 
   useEffect(() => {
-    const saved = localStorage.getItem('twosome_current_tasks');
     const lastReset = localStorage.getItem('twosome_last_reset');
     const now = new Date();
     const todayResetTime = new Date();
@@ -40,33 +40,21 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
 
     if (now >= todayResetTime && (!lastReset || lastReset !== today)) {
       const template = JSON.parse(localStorage.getItem('twosome_tasks_template') || '[]');
-      const resetTasks = template.map((t: ChecklistItem) => ({ ...t, isCompleted: false, notes: '' }));
-      setItems(resetTasks);
-      localStorage.setItem('twosome_current_tasks', JSON.stringify(resetTasks));
+      const resetTasks = template.map((t: ChecklistItem) => ({ ...t, isCompleted: false, notes: '', updatedAt: Date.now() }));
+      onUpdate(resetTasks);
       localStorage.setItem('twosome_last_reset', today);
       localStorage.setItem('twosome_is_submitted_today', 'false');
     } else {
-      if (saved) setItems(JSON.parse(saved));
       setIsSubmitted(localStorage.getItem('twosome_is_submitted_today') === 'true');
     }
-  }, [today]);
-
-  const save = (updated: ChecklistItem[]) => {
-    setItems(updated);
-    localStorage.setItem('twosome_current_tasks', JSON.stringify(updated));
-    // 점주가 수정한 경우 템플릿도 자동 업데이트 (내일도 적용되게 함)
-    if (currentUser.role === 'OWNER') {
-      localStorage.setItem('twosome_tasks_template', JSON.stringify(updated));
-    }
-    onUpdate?.();
-  };
+  }, [today, onUpdate]);
 
   const toggle = (id: string) => {
-    save(items.map(i => i.id === id ? { ...i, isCompleted: !i.isCompleted } : i));
+    onUpdate(data.map(i => i.id === id ? { ...i, isCompleted: !i.isCompleted, updatedAt: Date.now() } : i));
   };
 
   const updateNote = (id: string, note: string) => {
-    save(items.map(i => i.id === id ? { ...i, notes: note } : i));
+    onUpdate(data.map(i => i.id === id ? { ...i, notes: note, updatedAt: Date.now() } : i));
   };
 
   const startEdit = (item: ChecklistItem) => {
@@ -76,12 +64,12 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
 
   const saveEdit = () => {
     if (!editingId || !editValue.trim()) return;
-    save(items.map(i => i.id === editingId ? { ...i, content: editValue } : i));
+    onUpdate(data.map(i => i.id === editingId ? { ...i, content: editValue, updatedAt: Date.now() } : i));
     setEditingId(null);
   };
 
   const moveItem = (id: string, direction: 'up' | 'down') => {
-    const partItems = items.filter(i => i.part === activePart);
+    const partItems = data.filter(i => i.part === activePart);
     const index = partItems.findIndex(i => i.id === id);
     if (index < 0) return;
     if (direction === 'up' && index === 0) return;
@@ -91,9 +79,8 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
     [newPartItems[index], newPartItems[targetIdx]] = [newPartItems[targetIdx], newPartItems[index]];
 
-    // 전체 리스트에서 해당 파트만 교체
-    const otherPartItems = items.filter(i => i.part !== activePart);
-    save([...otherPartItems, ...newPartItems]);
+    const otherPartItems = data.filter(i => i.part !== activePart);
+    onUpdate([...otherPartItems, ...newPartItems]);
   };
 
   const addItem = () => {
@@ -102,24 +89,23 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
     const baseId = Date.now().toString();
     if (newItemPart === 'COMMON') {
       (['OPEN', 'MIDDLE', 'CLOSE21', 'CLOSE22'] as ShiftPart[]).forEach((p, idx) => {
-        newItems.push({ id: `${baseId}-${idx}`, part: p, content: newItemText, isCompleted: false });
+        newItems.push({ id: `${baseId}-${idx}`, part: p, content: newItemText, isCompleted: false, updatedAt: Date.now() });
       });
     } else {
-      newItems.push({ id: baseId, part: newItemPart as ShiftPart, content: newItemText, isCompleted: false });
+      newItems.push({ id: baseId, part: newItemPart as ShiftPart, content: newItemText, isCompleted: false, updatedAt: Date.now() });
     }
-    const updated = [...items, ...newItems];
-    save(updated);
+    onUpdate([...data, ...newItems]);
     setNewItemText('');
     setIsAdding(false);
   };
 
   const deleteItem = (id: string) => {
     if (currentUser.role !== 'OWNER') return;
-    if (confirm('삭제하시겠습니까?')) save(items.filter(i => i.id !== id));
+    if (confirm('삭제하시겠습니까?')) onUpdate(data.filter(i => i.id !== id));
   };
 
   const submit = () => {
-    const partItems = items.filter(i => i.part === activePart);
+    const partItems = data.filter(i => i.part === activePart);
     if (partItems.length === 0) return;
     
     if (!startTime || !endTime) {
@@ -132,6 +118,7 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
       return;
     }
 
+    // Fix: Added missing updatedAt
     const report: DailyReport = { 
       id: Date.now().toString(),
       date: today, 
@@ -144,19 +131,14 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
       authorNickname: currentUser.nickname,
       actualStartTime: startTime,
       actualEndTime: endTime,
-      hasBreak: hasBreak
+      hasBreak: hasBreak,
+      updatedAt: Date.now()
     };
 
-    const reports = JSON.parse(localStorage.getItem('twosome_reports') || '[]');
-    localStorage.setItem('twosome_reports', JSON.stringify([...reports, report]));
-    
-    const pendingReports = JSON.parse(localStorage.getItem('twosome_pending_reports') || '[]');
-    localStorage.setItem('twosome_pending_reports', JSON.stringify([...pendingReports, report]));
-
+    onReportSubmit(report);
     setIsSubmitted(true);
     localStorage.setItem('twosome_is_submitted_today', 'true');
     alert('근무 기록 및 보고가 완료되었습니다.');
-    onUpdate?.();
   };
 
   return (
@@ -185,7 +167,7 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
           <span className="font-black text-gray-700">{SHIFT_LABELS[activePart]} 필수 체크</span>
         </div>
         <div className="divide-y divide-gray-50">
-          {items.filter(i => i.part === activePart).map((item, idx, arr) => (
+          {data.filter(i => i.part === activePart).map((item, idx, arr) => (
             <div key={item.id} className="p-5 flex items-start gap-4">
               <button onClick={() => toggle(item.id)} className="mt-1 flex-shrink-0">
                 {item.isCompleted ? <CheckCircle2 className="text-red-600" size={28} /> : <Square className="text-gray-200" size={28} />}
@@ -226,7 +208,7 @@ export const ChecklistBoard: React.FC<ChecklistBoardProps> = ({ currentUser, onU
               </div>
             </div>
           ))}
-          {items.filter(i => i.part === activePart).length === 0 && (
+          {data.filter(i => i.part === activePart).length === 0 && (
             <div className="p-16 text-center text-gray-400 font-bold">등록된 업무가 없습니다.</div>
           )}
         </div>

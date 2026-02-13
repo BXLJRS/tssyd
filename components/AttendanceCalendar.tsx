@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DailyReport, User } from '../types';
 import { calculateWorkHours, getDayOfWeek } from '../utils';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, User as UserIcon, Clock, Plus, X } from 'lucide-react';
@@ -7,11 +7,11 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, User as UserIcon, 
 interface AttendanceCalendarProps {
   currentUser: User;
   allUsers: User[];
-  onUpdate?: () => void;
+  reports: DailyReport[];
+  onUpdate: (updated: DailyReport[]) => void;
 }
 
-export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentUser, allUsers, onUpdate }) => {
-  const [reports, setReports] = useState<DailyReport[]>([]);
+export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentUser, allUsers, reports, onUpdate }) => {
   const [viewDate, setViewDate] = useState(new Date());
   
   // 수동 입력 모달 상태
@@ -23,17 +23,6 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
     endTime: '17:00',
     hasBreak: true
   });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('twosome_reports');
-    if (saved) setReports(JSON.parse(saved));
-  }, []);
-
-  const saveReports = (updated: DailyReport[]) => {
-    setReports(updated);
-    localStorage.setItem('twosome_reports', JSON.stringify(updated));
-    onUpdate?.();
-  };
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -69,6 +58,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
 
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     
+    // Fix: Added missing updatedAt
     const newReport: DailyReport = {
       id: `manual-${Date.now()}`,
       date: dateStr,
@@ -81,10 +71,11 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
       authorNickname: targetUser.nickname,
       actualStartTime: manualEntry.startTime,
       actualEndTime: manualEntry.endTime,
-      hasBreak: manualEntry.hasBreak
+      hasBreak: manualEntry.hasBreak,
+      updatedAt: Date.now()
     };
 
-    saveReports([...reports, newReport]);
+    onUpdate([...reports, newReport]);
     setIsAddingManual(false);
     setManualEntry({ userId: '', startTime: '09:30', endTime: '17:00', hasBreak: true });
     alert('기록이 추가되었습니다.');
@@ -93,7 +84,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ currentU
   const deleteReport = (id: string) => {
     if (currentUser.role !== 'OWNER') return;
     if (confirm('이 근무 기록을 삭제하시겠습니까?')) {
-      saveReports(reports.filter(r => r.id !== id));
+      onUpdate(reports.filter(r => r.id !== id));
     }
   };
 

@@ -1,48 +1,35 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User, InventoryItem, InventoryCategory } from '../types';
 import { INITIAL_CATEGORIES } from '../constants';
 import { Package, Plus, Minus, Search, Bell, BellOff, Trash2, ChevronRight, Tag } from 'lucide-react';
 
 interface InventoryManagementProps {
   currentUser: User;
-  // Added onUpdate prop to fix TypeScript error in App.tsx
-  onUpdate?: () => void;
+  // Use passed data prop instead of local state to stay synced
+  data: InventoryItem[];
+  onUpdate: (updated: InventoryItem[]) => void;
 }
 
-export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, onUpdate }) => {
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [categories, setCategories] = useState<InventoryCategory[]>(INITIAL_CATEGORIES);
+export const InventoryManagement: React.FC<InventoryManagementProps> = ({ currentUser, data, onUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', category: INITIAL_CATEGORIES[0], count: 0 });
 
-  useEffect(() => {
-    const saved = localStorage.getItem('twosome_inventory');
-    if (saved) setItems(JSON.parse(saved));
-  }, []);
-
-  const save = (updated: InventoryItem[]) => {
-    setItems(updated);
-    localStorage.setItem('twosome_inventory', JSON.stringify(updated));
-    // Trigger cloud sync if provided
-    onUpdate?.();
-  };
-
   const updateCount = (id: string, delta: number) => {
-    save(items.map(i => i.id === id ? { ...i, count: Math.max(0, i.count + delta) } : i));
+    onUpdate(data.map(i => i.id === id ? { ...i, count: Math.max(0, i.count + delta), updatedAt: Date.now() } : i));
   };
 
   const toggleAlert = (id: string) => {
-    save(items.map(i => i.id === id ? { ...i, alertEnabled: !i.alertEnabled } : i));
+    onUpdate(data.map(i => i.id === id ? { ...i, alertEnabled: !i.alertEnabled, updatedAt: Date.now() } : i));
   };
 
   const deleteItem = (id: string) => {
     if (currentUser.role !== 'OWNER') return;
-    if (confirm('삭제하시겠습니까?')) save(items.filter(i => i.id !== id));
+    if (confirm('삭제하시겠습니까?')) onUpdate(data.filter(i => i.id !== id));
   };
 
-  const filtered = items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = data.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -84,16 +71,17 @@ export const InventoryManagement: React.FC<InventoryManagementProps> = ({ curren
             <h3 className="text-2xl font-black mb-6 tracking-tight">재고 등록</h3>
             <div className="space-y-5">
               <select className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})}>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                {INITIAL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <input type="text" placeholder="품목명" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
               <div className="flex gap-2 pt-4">
                 <button onClick={() => setIsAdding(false)} className="flex-1 py-4 font-black text-gray-400">취소</button>
                 <button onClick={() => {
                   if(!newItem.name) return;
-                  save([...items, { id: Date.now().toString(), ...newItem, alertEnabled: false }]);
+                  // Fix: Added missing updatedAt
+                  onUpdate([...data, { id: Date.now().toString(), ...newItem, alertEnabled: false, updatedAt: Date.now() }]);
                   setIsAdding(false);
-                  setNewItem({ name: '', category: categories[0], count: 0 });
+                  setNewItem({ name: '', category: INITIAL_CATEGORIES[0], count: 0 });
                 }} className="flex-1 py-4 bg-black text-white font-black rounded-2xl shadow-xl">등록</button>
               </div>
             </div>
