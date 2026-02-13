@@ -19,19 +19,20 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onSto
 
   const handleExport = () => {
     try {
-      const code = btoa(JSON.stringify(appData));
+      // 한글 깨짐 방지 및 데이터 유실 방지 인코딩
+      const code = btoa(unescape(encodeURIComponent(JSON.stringify(appData))));
       navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      alert('데이터 코드가 복사되었습니다!\n이 긴 코드를 엣지(Edge)의 로그인 화면에 있는 [비상용 코드] 버튼에 붙여넣으세요.');
+      alert('비상 코드가 복사되었습니다!\n엣지 브라우저 로그인 화면의 [비상용 코드 연동] 버튼에 붙여넣으세요.');
     } catch (e) {
-      alert('코드 생성 중 오류가 발생했습니다.');
+      alert('코드 생성 실패. 데이터가 너무 큽니다.');
     }
   };
 
   const handleStoreIdSave = () => {
     if (!tempStoreId.trim()) return;
-    if (confirm(`'${tempStoreId}' 코드로 변경하시겠습니까?`)) {
+    if (confirm(`매장 코드를 '${tempStoreId}'로 변경하시겠습니까?`)) {
       onStoreIdUpdate(tempStoreId.trim().toLowerCase());
     }
   };
@@ -46,22 +47,22 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onSto
       <section className="bg-black text-white p-8 rounded-[2.5rem] shadow-2xl space-y-6">
         <div className="flex items-center gap-3">
           <Database className="text-red-500" size={28} />
-          <h3 className="text-xl font-black">브라우저 연동 문제 해결 (비상용)</h3>
+          <h3 className="text-xl font-black">연동 문제 즉시 해결 코드</h3>
         </div>
-        <p className="text-xs font-bold text-gray-400">엣지나 휴대폰에서 "연결 안됨"이 뜰 경우, 아래 버튼을 눌러 코드를 복사한 뒤 해당 기기의 로그인 화면에서 붙여넣으세요.</p>
+        <p className="text-xs font-bold text-gray-400">다른 기기(엣지 등)에서 "연결 안됨"이 뜨나요? 아래 버튼을 눌러 코드를 복사해 그 기기에 붙여넣으세요. 데이터가 즉시 수동으로 복사됩니다.</p>
         <button 
           onClick={handleExport}
-          className="w-full flex items-center justify-center gap-2 bg-white text-black py-4 rounded-2xl font-black hover:bg-gray-100 transition-all active:scale-95 shadow-xl"
+          className="w-full flex items-center justify-center gap-2 bg-white text-black py-4 rounded-2xl font-black hover:bg-gray-100 active:scale-95 shadow-xl transition-all"
         >
           {copied ? <Check className="text-green-600"/> : <Copy size={18}/>}
-          {copied ? '복사 완료!' : '현재 모든 데이터 코드로 복사하기'}
+          {copied ? '복사 완료!' : '현재 모든 데이터 코드 복사하기'}
         </button>
       </section>
 
       <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-6">
         <div className="flex items-center gap-3">
           <Cloud className="text-red-600" size={24} />
-          <h3 className="text-xl font-black text-gray-900">매장 코드 관리</h3>
+          <h3 className="text-xl font-black text-gray-900">매장 코드 변경</h3>
         </div>
         <div className="flex gap-2">
           <input 
@@ -70,7 +71,7 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onSto
             value={tempStoreId}
             onChange={e => setTempStoreId(e.target.value)}
           />
-          <button onClick={handleStoreIdSave} className="bg-black text-white px-8 py-4 rounded-2xl font-black active:scale-95 transition-transform shrink-0">변경</button>
+          <button onClick={handleStoreIdSave} className="bg-black text-white px-8 py-4 rounded-2xl font-black">변경</button>
         </div>
       </section>
 
@@ -78,7 +79,7 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onSto
         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-6">
           <div className="bg-red-50 p-5 rounded-3xl text-red-600"><CheckSquare size={32} /></div>
           <div>
-            <p className="text-gray-400 text-[10px] font-black uppercase mb-1">미승인 보고</p>
+            <p className="text-gray-400 text-[10px] font-black uppercase mb-1">승인 대기</p>
             <h3 className="text-3xl font-black text-gray-900">{pendingReports.length}건</h3>
           </div>
         </div>
