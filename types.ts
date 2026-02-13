@@ -96,9 +96,6 @@ export interface Reservation {
   updatedAt: number;
 }
 
-// Added missing Recipe-related types
-export type InventoryCategory = string;
-
 export interface RecipeDetail {
   content: string;
 }
@@ -132,4 +129,5 @@ export interface AppData {
   tasks: ChecklistItem[];
   template: ChecklistItem[];
   recipes: Recipe[];
+  lastUpdated: number; // 데이터 동기화용 타임스탬프
 }
