@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { User, InventoryItem, InventoryCategory } from '../types';
+// Fix: Removed InventoryCategory which is not exported from types and not used in this file
+import { User, InventoryItem } from '../types';
 import { INITIAL_CATEGORIES } from '../constants';
 import { Package, Plus, Minus, Search, Bell, BellOff, Trash2, ChevronRight, Tag } from 'lucide-react';
 
