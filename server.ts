@@ -16,6 +16,7 @@ const io = new Server(httpServer, {
 });
 
 const PORT = 3000;
+const DATA_FILE = path.resolve("./data/app_data.json");
 const DATA_DIR = path.resolve("./data");
 
 if (!fs.existsSync(DATA_DIR)) {
@@ -28,64 +29,48 @@ const INITIAL_APP_DATA: AppData = {
   template: [], recipes: [], lastUpdated: 0
 };
 
-function getStorePath(storeId: string) {
-  return path.join(DATA_DIR, `${storeId}.json`);
-}
-
-function loadStoreData(storeId: string): AppData {
-  const filePath = getStorePath(storeId);
-  if (fs.existsSync(filePath)) {
+function loadStoreData(): AppData {
+  if (fs.existsSync(DATA_FILE)) {
     try {
-      return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+      return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
     } catch (e) {
-      console.error(`Error loading data for ${storeId}:`, e);
+      console.error(`Error loading data:`, e);
     }
   }
   return { ...INITIAL_APP_DATA };
 }
 
-function saveStoreData(storeId: string, data: AppData) {
-  const filePath = getStorePath(storeId);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+function saveStoreData(data: AppData) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 app.use(express.json());
 
 // API Routes
-app.get("/api/data/:storeId", (req, res) => {
-  const { storeId } = req.params;
-  const data = loadStoreData(storeId);
+app.get("/api/data", (req, res) => {
+  const data = loadStoreData();
   res.json(data);
 });
 
 // Socket.io logic
 io.on("connection", (socket) => {
   console.log(`New connection: ${socket.id}`);
+  
+  // Join a single default room
+  socket.join("main_room");
 
-  socket.on("join-store", (rawStoreId: string) => {
-    if (!rawStoreId) return;
-    const storeId = rawStoreId.trim().toLowerCase();
-    socket.join(storeId);
-    console.log(`Socket ${socket.id} joined store: ${storeId}`);
+  socket.on("update-data", ({ key, data }: { key: keyof AppData, data: any }) => {
+    console.log(`Update received for key: ${key}`);
+    const storeData = loadStoreData();
     
-    // Send a confirmation back to the client
-    socket.emit("joined", { storeId, socketId: socket.id });
-  });
-
-  socket.on("update-data", ({ storeId: rawStoreId, key, data }: { storeId: string, key: keyof AppData, data: any }) => {
-    const storeId = rawStoreId.trim().toLowerCase();
-    console.log(`Update received for store ${storeId}, key ${key}`);
-    const storeData = loadStoreData(storeId);
-    
-    // Update the specific key
     (storeData as any)[key] = data;
     storeData.lastUpdated = Date.now();
 
-    saveStoreData(storeId, storeData);
+    saveStoreData(storeData);
 
-    // Broadcast the update to everyone else in the store
-    socket.to(storeId).emit("data-updated", { key, data, lastUpdated: storeData.lastUpdated });
-    console.log(`Broadcasted update for ${key} to store ${storeId}`);
+    // Broadcast to everyone in the main room
+    socket.to("main_room").emit("data-updated", { key, data, lastUpdated: storeData.lastUpdated });
+    console.log(`Broadcasted update for ${key}`);
   });
 
   socket.on("disconnect", (reason) => {
