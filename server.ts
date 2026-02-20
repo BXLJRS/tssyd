@@ -62,8 +62,9 @@ app.get("/api/data/:storeId", (req, res) => {
 io.on("connection", (socket) => {
   console.log(`New connection: ${socket.id}`);
 
-  socket.on("join-store", (storeId: string) => {
-    if (!storeId) return;
+  socket.on("join-store", (rawStoreId: string) => {
+    if (!rawStoreId) return;
+    const storeId = rawStoreId.trim().toLowerCase();
     socket.join(storeId);
     console.log(`Socket ${socket.id} joined store: ${storeId}`);
     
@@ -71,7 +72,8 @@ io.on("connection", (socket) => {
     socket.emit("joined", { storeId, socketId: socket.id });
   });
 
-  socket.on("update-data", ({ storeId, key, data }: { storeId: string, key: keyof AppData, data: any }) => {
+  socket.on("update-data", ({ storeId: rawStoreId, key, data }: { storeId: string, key: keyof AppData, data: any }) => {
+    const storeId = rawStoreId.trim().toLowerCase();
     console.log(`Update received for store ${storeId}, key ${key}`);
     const storeData = loadStoreData(storeId);
     
