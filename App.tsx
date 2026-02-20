@@ -89,6 +89,8 @@ const App: React.FC = () => {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   
   const socketRef = useRef<Socket | null>(null);
+  const [socketId, setSocketId] = useState<string>('');
+  const [isJoined, setIsJoined] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
     if (!storeId) return;
@@ -114,15 +116,36 @@ const App: React.FC = () => {
       return;
     }
 
-    const socket = io();
+    const socket = io(window.location.origin, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       setSyncStatus('connected');
+      setSocketId(socket.id || '');
       socket.emit('join-store', storeId);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('joined', ({ socketId }: any) => {
+      setIsJoined(true);
+      console.log('Successfully joined store room with socket:', socketId);
+    });
+
+    socket.on('reconnect', () => {
+      socket.emit('join-store', storeId);
+    });
+
+    socket.on('disconnect', (reason) => {
+      setSyncStatus('offline');
+      setIsJoined(false);
+      console.log('Socket disconnected:', reason);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
       setSyncStatus('offline');
     });
 
@@ -344,6 +367,8 @@ const App: React.FC = () => {
               <div className="p-6 bg-gray-50 rounded-2xl space-y-3 text-[10px] font-bold text-gray-500 text-left">
                 <div className="flex justify-between"><span>매장 코드</span> <span className="text-red-600 font-black">{storeId}</span></div>
                 <div className="flex justify-between"><span>연결 상태</span> <span className={syncStatus === 'connected' ? 'text-green-500' : 'text-red-500'}>{syncStatus.toUpperCase()}</span></div>
+                <div className="flex justify-between"><span>서버 연동</span> <span className={isJoined ? 'text-green-500' : 'text-red-500'}>{isJoined ? 'ACTIVE' : 'WAITING'}</span></div>
+                <div className="flex justify-between"><span>소켓 ID</span> <span className="text-[8px] text-gray-400">{socketId || 'N/A'}</span></div>
                 <div className="flex justify-between"><span>최종 연동</span> <span className="text-gray-900">{new Date(appData.lastUpdated).toLocaleTimeString()}</span></div>
                 <div className="flex justify-between"><span>직원 명수</span> <span className="text-gray-900">{appData.users.length}명</span></div>
               </div>
