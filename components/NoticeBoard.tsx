@@ -29,6 +29,12 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, data, onU
     setNewNotice({ title: '', content: '', isPinned: false });
   };
 
+  const handleDelete = (id: string) => {
+    if (window.confirm('이 공지사항을 정말 삭제하시겠습니까? 삭제된 내용은 복구할 수 없습니다.')) {
+      onUpdate(data.filter(i => i.id !== id));
+    }
+  };
+
   const sorted = [...data].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
@@ -50,7 +56,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, data, onU
                 {n.isPinned && <Pin size={16} className="text-red-600 fill-red-600" />}
                 <h3 className="text-lg font-black text-gray-900">{n.title}</h3>
               </div>
-              <button onClick={() => onUpdate(data.filter(i => i.id !== n.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
+              <button onClick={() => handleDelete(n.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1"><Trash2 size={18}/></button>
             </div>
             <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{n.content}</p>
             <div className="mt-4 pt-4 border-t border-gray-50 flex justify-between items-center text-[10px] font-black text-gray-400">
@@ -65,11 +71,11 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ currentUser, data, onU
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 z-[60]">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl space-y-6 animate-in zoom-in duration-300">
             <h3 className="text-2xl font-black">공지 작성</h3>
-            <input type="text" placeholder="제목" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" onChange={e => setNewNotice({...newNotice, title: e.target.value})} />
-            <textarea placeholder="내용" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold h-32" onChange={e => setNewNotice({...newNotice, content: e.target.value})} />
+            <input type="text" placeholder="제목" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold" value={newNotice.title} onChange={e => setNewNotice({...newNotice, title: e.target.value})} />
+            <textarea placeholder="내용" className="w-full p-4 bg-gray-50 border rounded-2xl font-bold h-32" value={newNotice.content} onChange={e => setNewNotice({...newNotice, content: e.target.value})} />
             {currentUser.role === 'OWNER' && (
               <label className="flex items-center gap-2 cursor-pointer font-bold text-sm text-gray-500">
-                <input type="checkbox" onChange={e => setNewNotice({...newNotice, isPinned: e.target.checked})} className="w-5 h-5 accent-red-600" /> 상단 고정
+                <input type="checkbox" checked={newNotice.isPinned} onChange={e => setNewNotice({...newNotice, isPinned: e.target.checked})} className="w-5 h-5 accent-red-600" /> 상단 고정
               </label>
             )}
             <div className="flex gap-2">

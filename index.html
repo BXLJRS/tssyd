@@ -8,18 +8,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --rs-red: #D32F2F;
+        }
         body {
             font-family: 'Noto Sans KR', sans-serif;
-            background-color: #f8fafc;
+            background-color: #ffffff;
             -webkit-tap-highlight-color: transparent;
-            /* iOS 바운스 효과 방지 및 풀스크린 느낌 */
-            overscroll-behavior-y: none;
+            touch-action: manipulation;
         }
-        /* 입력창 포커스 시 자동 줌 방지 (16px 이상) */
+        /* 입력창 포커스 시 자동 줌 방지 */
         input, select, textarea {
             font-size: 16px !important;
         }
-        /* 커스텀 스크롤바 (모바일은 숨김 처리 위주) */
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
@@ -27,19 +28,13 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        /* 모바일 하단 탭바 여백 (Safe Area 대응) */
         .pb-safe {
             padding-bottom: env(safe-area-inset-bottom);
         }
-        .mb-safe {
-            margin-bottom: env(safe-area-inset-bottom);
-        }
-        @keyframes pulse-red {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
-        .animate-alert {
-            animation: pulse-red 2s infinite ease-in-out;
+        /* 모바일 짤림 방지용 최소 높이 */
+        .min-h-dynamic {
+            min-height: 100vh;
+            min-height: 100dvh;
         }
     </style>
 <script type="importmap">
@@ -55,7 +50,7 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="select-none">
+<body class="select-none overflow-x-hidden">
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>

@@ -1,5 +1,5 @@
 {
-  "name": "Twosome Manager Pro",
-  "description": "A comprehensive management application for Twosome Place cafe owners and staff, featuring notices, shift handovers, checklists with automated resets, work scheduling, and inventory tracking with approval workflows.",
+  "name": "Twosome Pro Manager",
+  "description": "Real-time collaborative management system for Twosome Place, featuring WebSocket synchronization, notice boards, handovers, and inventory tracking.",
   "requestFramePermissions": []
 }
