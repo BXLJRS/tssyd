@@ -60,12 +60,19 @@ app.get("/api/data/:storeId", (req, res) => {
 
 // Socket.io logic
 io.on("connection", (socket) => {
+  console.log(`New connection: ${socket.id}`);
+
   socket.on("join-store", (storeId: string) => {
+    if (!storeId) return;
     socket.join(storeId);
     console.log(`Socket ${socket.id} joined store: ${storeId}`);
+    
+    // Send a confirmation back to the client
+    socket.emit("joined", { storeId, socketId: socket.id });
   });
 
   socket.on("update-data", ({ storeId, key, data }: { storeId: string, key: keyof AppData, data: any }) => {
+    console.log(`Update received for store ${storeId}, key ${key}`);
     const storeData = loadStoreData(storeId);
     
     // Update the specific key
@@ -76,10 +83,11 @@ io.on("connection", (socket) => {
 
     // Broadcast the update to everyone else in the store
     socket.to(storeId).emit("data-updated", { key, data, lastUpdated: storeData.lastUpdated });
+    console.log(`Broadcasted update for ${key} to store ${storeId}`);
   });
 
-  socket.on("disconnect", () => {
-    // console.log("Client disconnected:", socket.id);
+  socket.on("disconnect", (reason) => {
+    console.log(`Client disconnected: ${socket.id}, reason: ${reason}`);
   });
 });
 
