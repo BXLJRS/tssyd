@@ -136,11 +136,15 @@ const App: React.FC = () => {
     });
 
     socket.on('data-updated', ({ key, data, lastUpdated }: { key: keyof AppData, data: any, lastUpdated: number }) => {
-      setAppData(prev => ({
-        ...prev,
-        [key]: data,
-        lastUpdated
-      }));
+      console.log(`Incoming sync for ${key} at ${lastUpdated}`);
+      setAppData(prev => {
+        if (lastUpdated <= prev.lastUpdated) return prev;
+        return {
+          ...prev,
+          [key]: data,
+          lastUpdated
+        };
+      });
       setLastSyncTime(Date.now());
     });
 
@@ -330,7 +334,7 @@ const App: React.FC = () => {
                 <p className="text-gray-400 font-bold text-[10px]">데이터 동기화 무결성을 실시간 점검합니다.</p>
               </div>
               <div className="p-6 bg-gray-50 rounded-2xl space-y-3 text-[10px] font-bold text-gray-500 text-left">
-                <div className="flex justify-between"><span>시스템 모드</span> <span className="text-red-600 font-black">SINGLE PORTAL</span></div>
+                <div className="flex justify-between"><span>시스템 모드</span> <span className="text-red-600 font-black">GLOBAL REAL-TIME PORTAL</span></div>
                 <div className="flex justify-between"><span>연결 상태</span> <span className={syncStatus === 'connected' ? 'text-green-500' : 'text-red-500'}>{syncStatus.toUpperCase()}</span></div>
                 <div className="flex justify-between"><span>서버 연동</span> <span className={isJoined ? 'text-green-500' : 'text-red-500'}>{isJoined ? 'ACTIVE' : 'OFFLINE'}</span></div>
                 <div className="flex justify-between"><span>소켓 ID</span> <span className="text-[8px] text-gray-400">{socketId || 'N/A'}</span></div>

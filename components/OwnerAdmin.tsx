@@ -12,18 +12,10 @@ interface OwnerAdminProps {
 }
 
 export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onStoreIdUpdate, onForceUpload }) => {
-  const [tempStoreId, setTempStoreId] = useState(localStorage.getItem('twosome_store_id') || '');
   const [copied, setCopied] = useState(false);
 
   const pendingReports = appData.reports.filter(r => !r.isApproved);
   const inventoryAlerts = appData.inventory.filter(i => i.alertEnabled && i.count <= 2);
-
-  const handleStoreIdSave = () => {
-    if (!tempStoreId.trim()) return;
-    if (confirm(`매장 코드를 '${tempStoreId}'로 변경하시겠습니까?`)) {
-      onStoreIdUpdate(tempStoreId.trim().toLowerCase());
-    }
-  };
 
   const handleApprove = (reportId: string) => {
     const updated = appData.reports.map(r => r.id === reportId ? { ...r, isApproved: true, updatedAt: Date.now() } : r);
@@ -35,31 +27,15 @@ export const OwnerAdmin: React.FC<OwnerAdminProps> = ({ appData, onUpdate, onSto
       <section className="bg-red-600 text-white p-8 rounded-[2.5rem] shadow-2xl space-y-6">
         <div className="flex items-center gap-3">
           <UploadCloud size={28} />
-          <h3 className="text-xl font-black">마스터 데이터 강제 연동</h3>
+          <h3 className="text-xl font-black">전체 데이터 동기화 강제 최적화</h3>
         </div>
-        <p className="text-xs font-bold text-red-100">내 기기의 데이터가 가장 최신이라면, 아래 버튼을 눌러 서버의 데이터를 내 데이터로 강제로 덮어씌웁니다. 다른 기기들의 데이터 연동이 꼬였을 때 최후의 수단으로 사용하세요.</p>
+        <p className="text-xs font-bold text-red-100">현재 내 기기의 데이터가 가장 정확하다면, 아래 버튼을 눌러 모든 기기의 데이터를 내 데이터로 강제 통일합니다. 실시간 연동이 지연될 때 최후의 수단으로 사용하세요.</p>
         <button 
-          onClick={() => { if(confirm('내 기기의 데이터로 서버를 덮어씌울까요?\n(다른 기기의 데이터가 사라질 수 있습니다)')) onForceUpload(); }}
+          onClick={() => { if(confirm('내 기기의 데이터로 전체 시스템을 동기화할까요?\n(다른 기기의 미저장 데이터가 덮어씌워질 수 있습니다)')) onForceUpload(); }}
           className="w-full flex items-center justify-center gap-2 bg-white text-red-600 py-4 rounded-2xl font-black hover:bg-gray-100 active:scale-95 shadow-xl transition-all"
         >
-          서버로 데이터 강제 업로드 (Master Push)
+          마스터 데이터 강제 동기화 (Force Sync All)
         </button>
-      </section>
-
-      <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-6">
-        <div className="flex items-center gap-3">
-          <Cloud className="text-red-600" size={24} />
-          <h3 className="text-xl font-black text-gray-900">매장 코드 변경</h3>
-        </div>
-        <div className="flex gap-2">
-          <input 
-            type="text" 
-            className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-bold outline-none focus:ring-2 focus:ring-red-500"
-            value={tempStoreId}
-            onChange={e => setTempStoreId(e.target.value)}
-          />
-          <button onClick={handleStoreIdSave} className="bg-black text-white px-8 py-4 rounded-2xl font-black">변경</button>
-        </div>
       </section>
 
       <div className="grid md:grid-cols-2 gap-6">

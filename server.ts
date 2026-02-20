@@ -54,27 +54,29 @@ app.get("/api/data", (req, res) => {
 
 // Socket.io logic
 io.on("connection", (socket) => {
-  console.log(`New connection: ${socket.id}`);
+  console.log(`[SOCKET] New connection: ${socket.id}`);
   
   // Join a single default room
   socket.join("main_room");
+  console.log(`[SOCKET] Socket ${socket.id} joined main_room`);
 
   socket.on("update-data", ({ key, data }: { key: keyof AppData, data: any }) => {
-    console.log(`Update received for key: ${key}`);
-    const storeData = loadStoreData();
+    const timestamp = Date.now();
+    console.log(`[DATA] Update received for key: ${key} at ${timestamp}`);
     
+    const storeData = loadStoreData();
     (storeData as any)[key] = data;
-    storeData.lastUpdated = Date.now();
+    storeData.lastUpdated = timestamp;
 
     saveStoreData(storeData);
 
-    // Broadcast to everyone in the main room
-    socket.to("main_room").emit("data-updated", { key, data, lastUpdated: storeData.lastUpdated });
-    console.log(`Broadcasted update for ${key}`);
+    // Broadcast to EVERYONE (including sender, client handles deduplication)
+    io.emit("data-updated", { key, data, lastUpdated: timestamp });
+    console.log(`[DATA] Broadcasted update for ${key} to all clients`);
   });
 
   socket.on("disconnect", (reason) => {
-    console.log(`Client disconnected: ${socket.id}, reason: ${reason}`);
+    console.log(`[SOCKET] Client disconnected: ${socket.id}, reason: ${reason}`);
   });
 });
 
