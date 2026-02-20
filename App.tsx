@@ -25,7 +25,7 @@ const INITIAL_APP_DATA: AppData = {
   template: [], recipes: [], lastUpdated: 0
 };
 
-const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, onRefresh }: any) => {
+const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, onRefresh, storeId, isJoined }: any) => {
   const location = useLocation();
   const [sec, setSec] = useState(0);
   useEffect(() => {
@@ -46,8 +46,11 @@ const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, on
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 grid grid-cols-[120px_1fr_180px] items-center px-4 md:px-10 z-50 shadow-sm">
-        <div className="flex items-center"><h1 className="text-base md:text-lg font-black text-red-600 tracking-tighter shrink-0 italic">TWOSOME</h1></div>
+      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 grid grid-cols-[140px_1fr_180px] items-center px-4 md:px-10 z-50 shadow-sm">
+        <div className="flex flex-col">
+          <h1 className="text-base md:text-lg font-black text-red-600 tracking-tighter shrink-0 italic leading-none">TWOSOME</h1>
+          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{storeId}</span>
+        </div>
         <nav className="hidden lg:flex items-center justify-center gap-1 overflow-hidden">
           {navItems.map(item => (
             <Link key={item.path} to={item.path} className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${location.pathname === item.path ? 'bg-red-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>{item.label}</Link>
@@ -60,7 +63,10 @@ const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, on
           </button>
           <div className="hidden sm:flex flex-col items-end mr-1 text-right">
             <span className="text-[9px] font-black text-gray-900">{user.nickname} {user.role === 'OWNER' ? '점주' : ''}</span>
-            <span className="text-[7px] font-bold text-green-500 flex items-center gap-0.5"><div className="w-1 h-1 bg-green-500 rounded-full"></div>ONLINE</span>
+            <span className={`text-[7px] font-bold flex items-center gap-0.5 ${isJoined ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`w-1 h-1 rounded-full ${isJoined ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+              {isJoined ? 'SYNC ACTIVE' : 'WAITING'}
+            </span>
           </div>
           <button onClick={onShowDoctor} className={`flex items-center justify-center gap-1 px-2 py-1 rounded-full text-[9px] font-black transition-all ${syncStatus === 'connected' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
             {syncStatus === 'connected' ? <Wifi size={10}/> : <WifiOff size={10}/>}
@@ -117,16 +123,17 @@ const App: React.FC = () => {
     }
 
     const socket = io(window.location.origin, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      transports: ['polling', 'websocket'],
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
+      timeout: 20000,
     });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       setSyncStatus('connected');
       setSocketId(socket.id || '');
-      socket.emit('join-store', storeId);
+      socket.emit('join-store', storeId.trim().toLowerCase());
     });
 
     socket.on('joined', ({ socketId }: any) => {
@@ -341,6 +348,8 @@ const App: React.FC = () => {
           onLogout={() => { if(window.confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} 
           onShowDoctor={() => setShowDoctor(true)}
           onRefresh={() => fetchInitialData()}
+          storeId={storeId}
+          isJoined={isJoined}
         />
         <main className="flex-1 pt-20 pb-24 lg:pb-10 px-4 md:px-10 max-w-[1400px] mx-auto w-full">
           <Routes>
