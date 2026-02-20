@@ -25,7 +25,7 @@ const INITIAL_APP_DATA: AppData = {
   template: [], recipes: [], lastUpdated: 0
 };
 
-const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, onRefresh, storeId, isJoined }: any) => {
+const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, onRefresh, isJoined }: any) => {
   const location = useLocation();
   const [sec, setSec] = useState(0);
   useEffect(() => {
@@ -49,7 +49,7 @@ const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, on
       <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 grid grid-cols-[140px_1fr_180px] items-center px-4 md:px-10 z-50 shadow-sm">
         <div className="flex flex-col">
           <h1 className="text-base md:text-lg font-black text-red-600 tracking-tighter shrink-0 italic leading-none">TWOSOME</h1>
-          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{storeId}</span>
+          <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">MANAGER PORTAL</span>
         </div>
         <nav className="hidden lg:flex items-center justify-center gap-1 overflow-hidden">
           {navItems.map(item => (
@@ -65,7 +65,7 @@ const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, on
             <span className="text-[9px] font-black text-gray-900">{user.nickname} {user.role === 'OWNER' ? '점주' : ''}</span>
             <span className={`text-[7px] font-bold flex items-center gap-0.5 ${isJoined ? 'text-green-500' : 'text-red-500'}`}>
               <div className={`w-1 h-1 rounded-full ${isJoined ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              {isJoined ? 'SYNC ACTIVE' : 'WAITING'}
+              {isJoined ? 'SYNC ACTIVE' : 'OFFLINE'}
             </span>
           </div>
           <button onClick={onShowDoctor} className={`flex items-center justify-center gap-1 px-2 py-1 rounded-full text-[9px] font-black transition-all ${syncStatus === 'connected' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
@@ -86,7 +86,6 @@ const Navigation = ({ user, syncStatus, lastSyncTime, onLogout, onShowDoctor, on
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [storeId, setStoreId] = useState(localStorage.getItem('twosome_store_id')?.toLowerCase().trim() || '');
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('offline');
   const [appData, setAppData] = useState<AppData>(INITIAL_APP_DATA);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -99,10 +98,9 @@ const App: React.FC = () => {
   const [isJoined, setIsJoined] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
-    if (!storeId) return;
     try {
       setSyncStatus('syncing');
-      const response = await fetch(`/api/data/${storeId}`);
+      const response = await fetch(`/api/data`);
       if (response.ok) {
         const data = await response.json();
         setAppData(data);
@@ -114,14 +112,9 @@ const App: React.FC = () => {
     } finally {
       setIsInitialized(true);
     }
-  }, [storeId]);
+  }, []);
 
   useEffect(() => {
-    if (!storeId) {
-      setIsInitialized(true);
-      return;
-    }
-
     const socket = io(window.location.origin, {
       transports: ['polling', 'websocket'],
       reconnectionAttempts: 20,
@@ -133,27 +126,13 @@ const App: React.FC = () => {
     socket.on('connect', () => {
       setSyncStatus('connected');
       setSocketId(socket.id || '');
-      socket.emit('join-store', storeId.trim().toLowerCase());
-    });
-
-    socket.on('joined', ({ socketId }: any) => {
       setIsJoined(true);
-      console.log('Successfully joined store room with socket:', socketId);
-    });
-
-    socket.on('reconnect', () => {
-      socket.emit('join-store', storeId);
     });
 
     socket.on('disconnect', (reason) => {
       setSyncStatus('offline');
       setIsJoined(false);
       console.log('Socket disconnected:', reason);
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err);
-      setSyncStatus('offline');
     });
 
     socket.on('data-updated', ({ key, data, lastUpdated }: { key: keyof AppData, data: any, lastUpdated: number }) => {
@@ -170,7 +149,7 @@ const App: React.FC = () => {
     return () => {
       socket.disconnect();
     };
-  }, [storeId, fetchInitialData]);
+  }, [fetchInitialData]);
 
   useEffect(() => {
     const saved = localStorage.getItem('twosome_session');
@@ -178,7 +157,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleUpdate = (key: keyof AppData, updatedItems: any[]) => {
-    if (!storeId || !socketRef.current) return;
+    if (!socketRef.current) return;
 
     // Optimistic update
     setAppData(prev => ({
@@ -189,38 +168,16 @@ const App: React.FC = () => {
 
     // Emit to server
     socketRef.current.emit('update-data', {
-      storeId,
       key,
       data: updatedItems
     });
   };
 
-  if (!isInitialized && storeId) {
+  if (!isInitialized) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[9999]">
         <Loader2 className="text-red-600 animate-spin mb-4" size={32} />
         <p className="font-black text-[10px] tracking-widest text-gray-300 uppercase italic">A TWOSOME PLACE CLOUD CONNECTING...</p>
-      </div>
-    );
-  }
-
-  if (!storeId) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
-        <div className="bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl space-y-10 animate-in zoom-in duration-500">
-          <div className="text-center space-y-4">
-            <div className="inline-block p-6 bg-red-600 rounded-[2rem] text-white mb-2 shadow-xl shadow-red-200"><Store size={44} /></div>
-            <h1 className="text-4xl font-black text-gray-900 tracking-tighter italic uppercase">TWOSOME PRO</h1>
-            <p className="text-gray-400 font-bold text-sm leading-relaxed">우리 매장만의 고유 코드를 입력하세요.<br/>(처음이라면 원하는 영문 이름을 입력)</p>
-          </div>
-          <div className="space-y-4">
-            <input type="text" placeholder="매장 코드 (예: ts-center)" className="w-full p-6 bg-gray-50 border-2 border-transparent focus:border-red-600 rounded-[2rem] outline-none font-black text-center text-2xl transition-all lowercase" id="store-input" />
-            <button onClick={() => { 
-              const id = (document.getElementById('store-input') as HTMLInputElement).value?.trim().toLowerCase(); 
-              if(id) { localStorage.setItem('twosome_store_id', id); window.location.reload(); }
-            }} className="w-full py-6 bg-black text-white rounded-[2rem] font-black text-xl shadow-xl hover:bg-gray-800 active:scale-95 transition-all uppercase tracking-tight">연동 시스템 가동</button>
-          </div>
-        </div>
       </div>
     );
   }
@@ -232,7 +189,7 @@ const App: React.FC = () => {
           <div className="bg-red-600 p-12 text-white md:w-5/12 flex flex-col justify-between">
             <div className="z-10 flex justify-between items-center md:block">
               <h2 className="text-2xl font-black italic tracking-tighter">A TWOSOME PLACE</h2>
-              <div className="md:hidden bg-white/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{storeId}</div>
+              <div className="md:hidden bg-white/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">MANAGER</div>
             </div>
             <div className="hidden md:block mt-20 space-y-4">
               <h3 className="text-5xl font-black leading-tight tracking-tighter italic">Partner<br/>Portal.</h3>
@@ -288,7 +245,7 @@ const App: React.FC = () => {
                     <button onClick={() => setAuthMode('REGISTER')} className="text-xs font-black text-gray-400 hover:text-red-600 flex items-center gap-2">
                       <UserPlus size={16}/> 처음이신가요? 계정 등록하기
                     </button>
-                    <button onClick={() => { if(confirm('매장 코드를 재설정하시겠습니까?\n모든 데이터 연동이 끊어집니다.')) { localStorage.clear(); window.location.reload(); } }} className="text-[10px] font-black text-gray-300 underline uppercase tracking-tighter">RESET STORE ID</button>
+                    <button onClick={() => { if(confirm('로그아웃 하시겠습니까?')) { localStorage.clear(); window.location.reload(); } }} className="text-[10px] font-black text-gray-300 underline uppercase tracking-tighter">RESET SESSION</button>
                   </div>
                 </div>
               ) : (
@@ -348,7 +305,6 @@ const App: React.FC = () => {
           onLogout={() => { if(window.confirm('로그아웃 하시겠습니까?')) { localStorage.removeItem('twosome_session'); setCurrentUser(null); } }} 
           onShowDoctor={() => setShowDoctor(true)}
           onRefresh={() => fetchInitialData()}
-          storeId={storeId}
           isJoined={isJoined}
         />
         <main className="flex-1 pt-20 pb-24 lg:pb-10 px-4 md:px-10 max-w-[1400px] mx-auto w-full">
@@ -361,7 +317,7 @@ const App: React.FC = () => {
             <Route path="/inventory" element={<InventoryManagement currentUser={currentUser} data={appData.inventory} onUpdate={(it) => handleUpdate('inventory', it)} />} />
             <Route path="/recipe" element={<RecipeManual currentUser={currentUser} data={appData.recipes} onUpdate={(it) => handleUpdate('recipes', it)} />} />
             <Route path="/reservation" element={<ReservationManagement currentUser={currentUser} data={appData.reservations} onUpdate={(it) => handleUpdate('reservations', it)} />} />
-            <Route path="/admin" element={<OwnerAdmin appData={appData} onUpdate={handleUpdate} onStoreIdUpdate={(id) => {localStorage.setItem('twosome_store_id', id); window.location.reload();}} onForceUpload={() => fetchInitialData()} />} />
+            <Route path="/admin" element={<OwnerAdmin appData={appData} onUpdate={handleUpdate} onStoreIdUpdate={() => {}} onForceUpload={() => fetchInitialData()} />} />
             <Route path="*" element={<Navigate to="/notice" />} />
           </Routes>
         </main>
@@ -374,9 +330,9 @@ const App: React.FC = () => {
                 <p className="text-gray-400 font-bold text-[10px]">데이터 동기화 무결성을 실시간 점검합니다.</p>
               </div>
               <div className="p-6 bg-gray-50 rounded-2xl space-y-3 text-[10px] font-bold text-gray-500 text-left">
-                <div className="flex justify-between"><span>매장 코드</span> <span className="text-red-600 font-black">{storeId}</span></div>
+                <div className="flex justify-between"><span>시스템 모드</span> <span className="text-red-600 font-black">SINGLE PORTAL</span></div>
                 <div className="flex justify-between"><span>연결 상태</span> <span className={syncStatus === 'connected' ? 'text-green-500' : 'text-red-500'}>{syncStatus.toUpperCase()}</span></div>
-                <div className="flex justify-between"><span>서버 연동</span> <span className={isJoined ? 'text-green-500' : 'text-red-500'}>{isJoined ? 'ACTIVE' : 'WAITING'}</span></div>
+                <div className="flex justify-between"><span>서버 연동</span> <span className={isJoined ? 'text-green-500' : 'text-red-500'}>{isJoined ? 'ACTIVE' : 'OFFLINE'}</span></div>
                 <div className="flex justify-between"><span>소켓 ID</span> <span className="text-[8px] text-gray-400">{socketId || 'N/A'}</span></div>
                 <div className="flex justify-between"><span>최종 연동</span> <span className="text-gray-900">{new Date(appData.lastUpdated).toLocaleTimeString()}</span></div>
                 <div className="flex justify-between"><span>직원 명수</span> <span className="text-gray-900">{appData.users.length}명</span></div>
